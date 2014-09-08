@@ -1,5 +1,3 @@
-#include <stdio.h>
-
 #define SWAP(x0,x) {float ** tmp=x0;x0=x;x=tmp;}
 #define FOR_EACH_CELL for ( i=1 ; i<=N ; i++ ) { for ( j=1 ; j<=N ; j++ ) {
 #define END_FOR }}
@@ -15,11 +13,11 @@ void add_source ( int N, float **x, float **s, float dt )
 
 void set_bnd ( int N, int b, float * x )
 {
-	/*
+	/* 
 	WARNING: This may be an incorrect way to simulate how a border behaves
 	int i;
 
-	for ( i=1 ; i<=N ; i++ ) {
+	for ( i=1 ; i<=N ; i++ ) {d
 		x[IX(0  ,i)] = b==1 ? -x[IX(1,i)] : x[IX(1,i)];
 	 	x[IX(N+1,i)] = b==1 ? -x[IX(N,i)] : x[IX(N,i)]; 
 		x[IX(i,0  )] = b==2 ? -x[IX(i,1)] : x[IX(i,1)]; 
@@ -48,8 +46,6 @@ void lin_solve_complex( int N, int b, float **x, float **x0, float a, float c)
 void lin_solve( int N, int b, float **x, float **x0, float a, float c)
 {
 	int i, j, k;
-	printf("lin_solve version %d\n", versionXXXX);
-	#pragma scop
 	for ( k=0 ; k<20 ; k++ ) {
 		for ( i=1 ; i<=N ; i++ ) { 
 			for ( j=1 ; j<=N ; j++ ) {
@@ -58,7 +54,6 @@ void lin_solve( int N, int b, float **x, float **x0, float a, float c)
 		}
 		//set_bnd ( N, b, x );
 	}
-	#pragma endscop
 }
 
 void diffuse ( int N, int b, float ** x, float ** x0, float diff, float dt)

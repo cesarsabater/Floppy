@@ -30,13 +30,6 @@ typedef void (*stepfun)(int,float**,float**,float**,float**,float,float);
 
 extern stepfun get_dens_step();
 extern stepfun get_vel_step();
-extern void alloc_data();
-extern void refresh_grid();
-extern void test();
-extern int **grid;
-extern int cflag;
-extern int G;
-extern int slot_size;
 
 /* global variables */
 
@@ -45,11 +38,11 @@ void (*vel_step)(int, float**,float**, float**, float**, float, float);
 void (*dens_step)(int, float**, float**, float**, float**, float, float);
 
 int N;
+int pause;
+int iter;
 static float dt, diff, visc;
 static float force, source;
 static int dvel;
-int pause;
-int iter;
 
 float ** u, ** v, ** u_prev, ** v_prev;
 float ** dens, ** dens_prev;
@@ -76,6 +69,7 @@ static void free_matrix(float **m) {
 
 static void free_data (void)
 {
+	
 	if ( u ) free_matrix ( u );
 	if ( v ) free_matrix ( v );
 	if ( u_prev ) free_matrix ( u_prev );
@@ -224,42 +218,6 @@ static void draw_max_vel(void)
 	draw_map(vel_max);
 }
 
-static void draw_grid(void) 
-{
-	int i, j, i0, j0;
-	float x, y, h, d00, d01, d10, d11;
-	int gsize, slsize;
-	float ratio = 0.3f; //0.05f;
-
-	h = 1.0f/N;
-	gsize = G;
-	slsize = (N+2)/gsize;
-
-
-
-	glBegin ( GL_QUADS );
-		
-		for (i = 0 ; i < G; i++) 
-		for (j = 0 ; j < G; j++) {
-			
-			for (i0 = i * slsize; i0 <= (i+1)*slsize; i0++) {
-				x = (i0-0.5f)*h;
-				for (j0 = j * slsize; j0 <= (j+1)*slsize; j0++) {
-					y = (j0-0.5f)*h;
-					
-					d00 = d01 = d10 = d11 = ratio * grid[i][j];
-
-					glColor3f ( d00, d00, d00 ); glVertex2f ( x, y );
-					glColor3f ( d10, d10, d10 ); glVertex2f ( x+h, y );
-					glColor3f ( d11, d11, d11 ); glVertex2f ( x+h, y+h );
-					glColor3f ( d01, d01, d01 ); glVertex2f ( x, y+h );
-				}
-			}
-		}
-	
-	glEnd ();
-}
-
 
 /*
   ----------------------------------------------------------------------
@@ -275,6 +233,7 @@ static void get_from_UI ( float ** d, float ** u, float ** v )
 		u[i][j] = v[i][j] = d[i][j] = 0.0f;
 		/* v[i] = force;  */ 
 	}
+
 /*
  * original way of obtaining forces and velocities
 	if ( !mouse_down[0] && !mouse_down[2] ) return;
@@ -293,6 +252,7 @@ static void get_from_UI ( float ** d, float ** u, float ** v )
 		d[IX(i,j)] = source;
 	}
 */
+
 	static int toggle = 0, dir = 1;
 	if (toggle == 8) { dir = ( dir == 0 ) ? 1 : 0; toggle = 0 ;}
 	toggle++;
@@ -310,6 +270,7 @@ static void get_from_UI ( float ** d, float ** u, float ** v )
    GLUT callback routines
   ----------------------------------------------------------------------
 */
+
 
 
 static void reshape_func ( int width, int height )
@@ -342,13 +303,6 @@ static void poll_vel(int N, float **u, float **v, float **vm)
 static void step() {
 	get_from_UI ( dens_prev, u_prev, v_prev );
 	
-	if ( /*iter != 0 &&  */ iter%20 == 0 ) { 
-		refresh_grid();
-		dens_step = get_dens_step();
-		vel_step = get_vel_step();
-		cflag++;
-	}
-	
 	(*vel_step)( N, u, v, u_prev, v_prev, visc, dt);
 	(*dens_step)( N, dens, dens_prev, u, v, diff, dt);
 	poll_dens(N, dens, dens_max); 
@@ -362,7 +316,6 @@ static void step() {
 
 static void key_func ( unsigned char key, int x, int y )
 {
-	
 	switch ( key )
 	{
 		case 'c':
@@ -379,10 +332,10 @@ static void key_func ( unsigned char key, int x, int y )
 		case 'v':
 		case 'V':
 			dvel++;
-			dvel %= 5; 
+			dvel %= 4; 
 			break;
-		case 'p':
-		case 'P':
+		case 'p': 
+		case 'P': 
 			pause = (1 - pause); 
 			break;
 		case 'f':
@@ -392,10 +345,10 @@ static void key_func ( unsigned char key, int x, int y )
 	}
 }
 
-static void idle_func()
+static void idle_func ( void )
 {
-	if (pause) 
-		return;
+	if (pause)
+		return; 
 	step();
 }
 
@@ -412,9 +365,12 @@ static void display_func ( void )
 							break;
 			case 3: draw_max_vel (); 
 							break;
-			case 4: draw_grid();
-							break;
+			
 		}
+		/*
+		if ( dvel ) draw_velocity ();
+		else		draw_density ();
+		*/
 	post_display ();
 }
 
@@ -442,6 +398,8 @@ static void open_glut_window ( void )
 	pre_display ();
 
 	glutKeyboardFunc ( key_func );
+	//glutMouseFunc ( mouse_func );
+	//glutMotionFunc ( motion_func );
 	glutReshapeFunc ( reshape_func );
 	glutIdleFunc ( idle_func );
 	glutDisplayFunc ( display_func );
@@ -458,8 +416,8 @@ int main ( int argc, char ** argv )
 {
 	glutInit ( &argc, argv );
 
-	if ( argc != 1 && argc != 8 ) {
-		fprintf ( stderr, "usage : %s N dt diff visc force source grid\n", argv[0] );
+	if ( argc != 1 && argc != 7 ) {
+		fprintf ( stderr, "usage : %s N dt diff visc force source\n", argv[0] );
 		fprintf ( stderr, "where:\n" );\
 		fprintf ( stderr, "\t N      : grid resolution\n" );
 		fprintf ( stderr, "\t dt     : time step\n" );
@@ -467,7 +425,6 @@ int main ( int argc, char ** argv )
 		fprintf ( stderr, "\t visc   : viscosity of the fluid\n" );
 		fprintf ( stderr, "\t force  : scales the mouse movement that generate a force\n" );
 		fprintf ( stderr, "\t source : amount of density that will be deposited\n" );
-		fprintf ( stderr, "\t grid : the size spot grid" ); 
 		exit ( 1 );
 	}
 
@@ -478,7 +435,6 @@ int main ( int argc, char ** argv )
 		visc = 0.0f;
 		force = 5.0f;
 		source = 100.0f;
-		G = 5; 
 		fprintf ( stderr, "Using defaults : N=%d dt=%g diff=%g visc=%g force=%g source=%g\n",
 			N, dt, diff, visc, force, source);
 	} else {
@@ -488,7 +444,6 @@ int main ( int argc, char ** argv )
 		visc = atof(argv[4]);
 		force = atof(argv[5]);
 		source = atof(argv[6]);
-		G = atoi(argv[7]);
 	}
 
 	printf ( "\n\nHow to use this demo:\n\n" );
@@ -499,19 +454,15 @@ int main ( int argc, char ** argv )
 	printf ( "\t Quit by pressing the 'q' key\n" );
 
 	dvel = 0;
-	pause = 0;
+	pause = 0; 
 	iter = 0;
-	slot_size	= N / G;
 
 	if ( !allocate_data () ) exit ( 1 );
 	clear_data ();
 	
 	// DOM SOLVER STUFF
-	cflag = 0;
-	alloc_data();
-	printf("demo3.c main\n");
-//	dens_step = get_dens_step();
-//	vel_step = get_vel_step();
+	dens_step = get_dens_step();
+	vel_step = get_vel_step();
 
 
 	win_x = 512;
