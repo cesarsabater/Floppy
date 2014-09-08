@@ -30,8 +30,10 @@ typedef void (*stepfun)(int,float**,float**,float**,float**,float,float);
 
 extern stepfun get_dens_step();
 extern stepfun get_vel_step();
+extern stepfun get_dens_step_orig();
+extern stepfun get_vel_step_orig();
 extern void alloc_data();
-extern void refresh_grid();
+extern void refresh_grid(float**);
 extern void test();
 extern int **grid;
 extern int cflag;
@@ -40,9 +42,10 @@ extern int slot_size;
 
 /* global variables */
 
-
-void (*vel_step)(int, float**,float**, float**, float**, float, float);
-void (*dens_step)(int, float**, float**, float**, float**, float, float);
+stepfun vel_step; 
+stepfun dens_step;
+stepfun dens_step_orig;
+stepfun vel_step_orig;
 
 int N;
 static float dt, diff, visc;
@@ -51,9 +54,14 @@ static int dvel;
 int pause;
 int iter;
 
+// optimized grid
 float ** u, ** v, ** u_prev, ** v_prev;
 float ** dens, ** dens_prev;
 float ** vel_max, ** dens_max;
+
+// original grid
+float ** uo, ** vo, ** uo_prev, ** vo_prev;
+float ** denso, ** denso_prev;
 
 static int win_id;
 static int win_x, win_y;
@@ -82,14 +90,22 @@ static void free_data (void)
 	if ( v_prev ) free_matrix ( v_prev );
 	if ( dens ) free_matrix ( dens );
 	if ( dens_prev ) free_matrix ( dens_prev );
+	if (dens_max) free_matrix (dens_max); 
+	if (vel_max) free_matrix(vel_max);
+	if ( uo) free_matrix ( uo );
+	if ( vo ) free_matrix ( vo );
+	if ( uo_prev ) free_matrix ( uo_prev );
+	if ( vo_prev ) free_matrix ( vo_prev );
+	if ( denso ) free_matrix ( denso );
+	if ( denso_prev ) free_matrix ( denso_prev );
 }
 
 static void clear_data (void)
 {
 	int i, j, size=N+2;
-
 	for ( i=0 ; i<size ; i++ ) for (j=0 ; j<size; j++) {
 		dens_max[i][j] = vel_max[i][j] = u[i][j] = v[i][j] = u_prev[i][j] = v_prev[i][j] = dens[i][j] = dens_prev[i][j] = 0.0f;
+		uo[i][j] = vo[i][j] = uo_prev[i][j] = vo_prev[i][j] = denso[i][j] = denso_prev[i][j] = 0.0f;
 	}
 }
 
@@ -117,19 +133,25 @@ static float ** alloc_matrix() {
 
 static int allocate_data ( void )
 {
-
+	// optim
 	u				  = alloc_matrix(); v 			  = alloc_matrix();
 	u_prev	  = alloc_matrix(); v_prev	  = alloc_matrix();
-	vel_max   = alloc_matrix();
 	dens		  = alloc_matrix(); dens_prev	= alloc_matrix();
+	// some statistic values
+	vel_max   = alloc_matrix();
 	dens_max  = alloc_matrix();
+	// orig
+	uo				  = alloc_matrix(); vo 			  = alloc_matrix();
+	uo_prev	  = alloc_matrix(); vo_prev	  = alloc_matrix();
+	denso		  = alloc_matrix(); denso_prev	= alloc_matrix();
 	
-	if ( !u || !v || !u_prev || !v_prev ||!vel_max || !dens || !dens_prev || !dens_max) {
+	if ( !u || !v || !u_prev || !v_prev ||!vel_max || !dens || !dens_prev || !dens_max
+		|| !uo || !vo || !uo_prev || !vo_prev || !denso || !denso_prev) {
 		fprintf ( stderr, "cannot allocate data\n" );
-		return ( 0 );
+		return 0;
 	}
 	
-	return ( 1 );
+	return 1;
 }
 
 
@@ -208,12 +230,16 @@ static void draw_map(float **v)
 	glEnd ();
 }
 
+static void draw_density_orig ( void )
+{
+	draw_map(denso);
+}
 
 static void draw_density ( void )
 {
 	draw_map(dens);
 }
-
+/*
 static void draw_max_dens(void)
 {
 	draw_map(dens_max);
@@ -222,7 +248,7 @@ static void draw_max_dens(void)
 static void draw_max_vel(void)
 {
 	draw_map(vel_max);
-}
+} */
 
 static void draw_grid(void) 
 {
@@ -267,7 +293,7 @@ static void draw_grid(void)
   ----------------------------------------------------------------------
 */
 
-static void get_from_UI ( float ** d, float ** u, float ** v )
+static void get_from_UI ( float ** d, float ** u, float ** v, int dir)
 {
 	int i, j, size = (N+2);
 
@@ -293,9 +319,7 @@ static void get_from_UI ( float ** d, float ** u, float ** v )
 		d[IX(i,j)] = source;
 	}
 */
-	static int toggle = 0, dir = 1;
-	if (toggle == 8) { dir = ( dir == 0 ) ? 1 : 0; toggle = 0 ;}
-	toggle++;
+
 	v[N/2][N/4] = force * dir; 
 	d[N/2][N/4] = source * dir;
 
@@ -321,42 +345,54 @@ static void reshape_func ( int width, int height )
 	win_y = height;
 }
 
-static void poll_dens(int N, float **d, float **dm)  
-{
-	int i,j;
-	for ( i=0 ; i<=N ; i++ ) 
-	for ( j=0 ; j<=N ; j++ ) {
-		dm[i][j] = max(dm[i][j], d[i][j]);
+
+/* 
+ -------------------------------
+  coordinating and comparing the computations in the two simulations
+  ------------------------------- 
+*/  
+
+double compare_densities(float **a, float **b) {
+	int i, j, size = N+2; 
+	double sum = 0.0f; 
+	for (i = 0; i < size; i++) 
+	for (j = 0; j < size; j++) {
+		sum += fabs(a[i][j] - b[i][j]);
 	}
+	sum /= size * size; 
+	return sum;
 }
 
-static void poll_vel(int N, float **u, float **v, float **vm)
-{
-	int i,j;
-	for ( i=0 ; i<=N ; i++ ) 
-	for ( j=0 ; j<=N ; j++ ) {
-		vm[i][j] = max(vm[i][j], sqrt((u[i][j]*u[i][j]) +  (v[i][j]*v[i][j])) * 10);
-	}
-}
 
 static void step() {
-	get_from_UI ( dens_prev, u_prev, v_prev );
+	static int toggle = 0, dir = 1;
+	// settle ui stuff
+	if (toggle == 8) { 
+			dir = 1 - dir; 
+			toggle = 0 ;
+	}
+	toggle++;
+	get_from_UI ( dens_prev, u_prev, v_prev, dir);
+	get_from_UI ( denso_prev, uo_prev, vo_prev, dir);
 	
-	if ( /*iter != 0 &&  */ iter%20 == 0 ) { 
-		refresh_grid();
+	if (iter%20 == 0 ) { 
+		refresh_grid(dens);
 		dens_step = get_dens_step();
 		vel_step = get_vel_step();
 		cflag++;
 	}
 	
+	//optim
 	(*vel_step)( N, u, v, u_prev, v_prev, visc, dt);
 	(*dens_step)( N, dens, dens_prev, u, v, diff, dt);
-	poll_dens(N, dens, dens_max); 
-	poll_vel(N, u, v, vel_max); 
+	//orig 
+	(*vel_step_orig)( N, uo, vo, uo_prev, vo_prev, visc, dt);
+	(*dens_step_orig)( N, denso, denso_prev, uo, vo, diff, dt);
 	
 	glutSetWindow ( win_id );
 	glutPostRedisplay ();
 	printf("ITER: %d\n", iter);
+	printf("COMPARISON: %f\n", compare_densities(dens, denso));
 	iter++;
 }
 
@@ -379,7 +415,7 @@ static void key_func ( unsigned char key, int x, int y )
 		case 'v':
 		case 'V':
 			dvel++;
-			dvel %= 5; 
+			dvel %= 3; 
 			break;
 		case 'p':
 		case 'P':
@@ -406,13 +442,9 @@ static void display_func ( void )
 		switch(dvel) { 
 			case 0: draw_density (); 
 							break;
-			case 1: draw_velocity (); 
+			case 1: draw_density_orig(); 
 							break;
-			case 2: draw_max_dens (); 
-							break;
-			case 3: draw_max_vel (); 
-							break;
-			case 4: draw_grid();
+			case 2: draw_grid();
 							break;
 		}
 	post_display ();
@@ -453,7 +485,6 @@ static void open_glut_window ( void )
    main --- main routine
   ----------------------------------------------------------------------
 */
-
 int main ( int argc, char ** argv )
 {
 	glutInit ( &argc, argv );
@@ -505,20 +536,16 @@ int main ( int argc, char ** argv )
 
 	if ( !allocate_data () ) exit ( 1 );
 	clear_data ();
-	
 	// DOM SOLVER STUFF
 	cflag = 0;
 	alloc_data();
-	printf("demo3.c main\n");
-//	dens_step = get_dens_step();
-//	vel_step = get_vel_step();
-
-
+	//original steps, for comparing with the optimized
+	dens_step_orig = get_dens_step_orig();
+	vel_step_orig = get_vel_step_orig();
+	
 	win_x = 512;
 	win_y = 512;
 
-	
-	
 	open_glut_window ();
 
 	glutMainLoop ();
