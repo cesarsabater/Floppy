@@ -47,8 +47,7 @@ void lin_solve_complex( int N, int b, float **x, float **x0, float a, float c)
 void lin_solve( int N, int b, float **x, float **x0, float a, float c)
 {
 	int i, j, k;
-	printf("lin_solve version %d\n", versionXXXX);
-	#pragma scop
+	printf("lin_solve version %d\n", 0);
 	for ( k=0 ; k<20 ; k++ ) {
 		for ( i=1 ; i<=N ; i++ ) { 
 			for ( j=1 ; j<=N ; j++ ) {
@@ -57,7 +56,6 @@ void lin_solve( int N, int b, float **x, float **x0, float a, float c)
 		}
 		//set_bnd ( N, b, x );
 	}
-	#pragma endscop
 }
 
 void diffuse ( int N, int b, float ** x, float ** x0, float diff, float dt)
@@ -102,7 +100,7 @@ void project ( int N, float **u, float **v, float **p, float **div)
 	//set_bnd ( N, 1, u ); set_bnd ( N, 2, v );
 }
 
-void dens_step ( int N, float **x, float **x0, float **u, float **v, float diff, float dt)
+void dens_step(int N, float **x, float **x0, float **u, float **v, float diff, float dt)
 {
 	add_source ( N, x, x0, dt );
 	SWAP ( x0, x ); diffuse ( N, 0, x, x0, diff, dt);
