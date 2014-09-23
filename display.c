@@ -420,7 +420,6 @@ void display_init(int argc, char **argv) {
 	open_glut_window();
 }
 
-
 /*
   ----------------------------------------------------------------------
    main --- main routine
