@@ -32,22 +32,23 @@ extern void get_simulation_steps(stepfun*, stepfun*);
 extern void optimize_code();
 extern void transformer_init();
 extern void get_new_code_if_available();
-extern int cflag;
 //grid
 extern int G;
-extern int **grid;
+extern int **grid, **code_grid, **grid_aux;
 extern int slot_size;
 extern void grid_init();
 extern void refresh_grid(float**);
+extern int gridcmp(int**, int**);
+extern void calculate_iter();
 // main
 extern int N;
 extern float dt, diff, visc;
 extern float force, source;
 extern pthread_mutex_t fmutex;
+extern pthread_mutex_t gmutex;
 // original simulation
 extern void dens_step (int, float**, float**, float**, float**, float, float);
 extern void vel_step (int, float**, float**, float**, float**, float, float);
-
 /* global variables */
 void (*vel_step_opt)(int, float**,float**, float**, float**, float, float);
 void (*dens_step_opt)(int, float**, float**, float**, float**, float, float);
@@ -228,7 +229,7 @@ static void draw_grid(void)
 				for (j0 = j * slsize; j0 <= (j+1)*slsize; j0++) {
 					y = (j0-0.5f)*h;
 					
-					d00 = d01 = d10 = d11 = ratio * grid[i][j];
+					d00 = d01 = d10 = d11 = ratio * code_grid[i][j];
 
 					glColor3f ( d00, d00, d00 ); glVertex2f ( x, y );
 					glColor3f ( d10, d10, d10 ); glVertex2f ( x+h, y );
@@ -297,31 +298,29 @@ static void reshape_func ( int width, int height )
 
 void apply_sim() 
 {
-	//get_new_code_if_available();
+	//mutex lock
 	pthread_mutex_lock(&fmutex);
-	if (dens_step_opt && vel_step_opt) { 
+	if (dens_step_opt && vel_step_opt && gridcmp(grid_aux, code_grid) < 1) {
 		(*vel_step_opt)( N, u, v, u_prev, v_prev, visc, dt);
 		(*dens_step_opt)( N, dens, dens_prev, u, v, diff, dt);
-	} else {
-		vel_step( N, u, v, u_prev, v_prev, visc, dt);
-		dens_step( N, dens, dens_prev, u, v, diff, dt);
+		//mutex unlock and exit
+		calculate_iter();
+		pthread_mutex_unlock(&fmutex); 
+		return;
 	}
+	//mutex unlock
 	pthread_mutex_unlock(&fmutex);
+	vel_step( N, u, v, u_prev, v_prev, visc, dt);
+	dens_step( N, dens, dens_prev, u, v, diff, dt);
+	printf("Run original code: NO ITERATIONS SAVED!");
 }
 
 static void step() {
-	
+	pthread_mutex_lock(&gmutex);
 	refresh_grid(dens);
-	
-	cflag++;
-	
-	
+	pthread_mutex_unlock(&gmutex);
 	get_from_UI ( dens_prev, u_prev, v_prev );
 	apply_sim();
-	/*
-	vel_step( N, u, v, u_prev, v_prev, visc, dt);
-	dens_step( N, dens, dens_prev, u, v, diff, dt);
-	*/
 	glutSetWindow ( win_id );
 	glutPostRedisplay ();
 	printf("ITER: %d\n", iter);

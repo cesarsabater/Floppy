@@ -18,6 +18,7 @@ int N;
 float dt, diff, visc;
 float force, source;
 pthread_mutex_t fmutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t gmutex = PTHREAD_MUTEX_INITIALIZER;
 
 void init(int argc, char ** argv) {
 	display_init(argc, argv);

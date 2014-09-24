@@ -30,6 +30,7 @@
 //main
 extern int N;
 extern pthread_mutex_t fmutex;
+extern pthread_mutex_t gmutex;
 //display
 extern float ** u, ** v, ** u_prev, ** v_prev;
 extern float ** dens, ** dens_prev;
@@ -38,15 +39,13 @@ extern void (*dens_step_opt)(int, float**, float**, float**, float**, float, flo
 //grid
 extern int G;  // grid size 
 extern int slot_size; 
-extern int **grid, **grid_aux, **code_grid;	// grid of densities 
+extern int **grid, **grid_aux, **code_grid, **grid_new;	// grid of densities 
 extern void refresh_grid(float**);
-extern int compare_grids(int **, int **);
+extern int gridcmp(int **, int **);
+extern int gridcpy(int **, int **);
 extern int iter_from_level(int);
-
-
 /* local variables */ 
 int cflag;
-int new_step_available; 
 void *handle = NULL;
 char obj_name[50];
 osl_scop_p scop; 
@@ -68,7 +67,6 @@ void gen_random_obj(char *s, int len) {
 }
 
 void transformer_init() { 
-	new_step_available = 0;
 	cflag = 0;
 }
 
@@ -125,7 +123,7 @@ void create_isl_set_from_grid() {
 	// compute domains
 	for (i = 0; i < G; i++)  
 	for (j = 0; j < G; j++) {
-			int level = grid[i][j];
+			int level = grid_new[i][j];
 			isl_set *set_i;
 			s[0] ='\0';
 			high_water_mark = OSL_MAX_STRING;
@@ -165,10 +163,12 @@ void create_isl_set_from_grid() {
 			set_k = isl_set_read_from_str(ctx, s);
 			sets[i] = isl_set_intersect(sets[i], set_k);
 			sets[i] = isl_set_coalesce(sets[i]);
-			
+			//DEBUG
+			/*
 			printf("LEVEL %d\n", i);
-			isl_set_print(sets[i], stdout, 0, ISL_FORMAT_ISL);
+			//isl_set_print(sets[i], stdout, 0, ISL_FORMAT_ISL);
 			printf("\n");
+			*/
 		}
 	}
 	// free stuff
@@ -242,14 +242,10 @@ void get_steps(stepfun *d, stepfun *v) {
   char *error;
   printf("compilacion!\n");
 	// dynamic compilation of some code (which can be dynamically generated!)
-	printf("CFLAG: %d\n", cflag);
-	
 	sprintf(buffer, "sed -i 's/versionXXXX/%d/g' "GENERATED_CODE, cflag);
 	system(buffer);
-	printf("%s\n", buffer);
 	system("gcc -fPIC -shared -o "COMPILED" "GENERATED_CODE);
-	printf("gcc -fPIC -shared -o "COMPILED" "GENERATED_CODE"\n");
-	
+	// CONCURRENT REGION
 	pthread_mutex_lock(&fmutex);
 	if (handle != NULL) 
 			dlclose(handle);  
@@ -265,52 +261,33 @@ void get_steps(stepfun *d, stepfun *v) {
 										float**,float,float))dlsym(handle, DENS_FUNCTION);
 	*v = (void (*)(int,float**,float**,float**,
 										float**,float,float))dlsym(handle, VEL_FUNCTION);
-	
+	// refresh code grid
+	gridcpy(grid_new, code_grid);
 	pthread_mutex_unlock(&fmutex);
-
+	// END CONCURRENT REGION	
 	// reset the new_step_available flag
-
   if ((error = dlerror()) != NULL) {
     fprintf(stderr, "%s\n", error);
     exit(EXIT_FAILURE);
   }
 }
 
-/*
-void get_new_code_if_available() { 
-	if (new_code_handle != NULL) {
-		printf("charging new code!!!\n");
-		//sleep(1);
-		if (code_handle != NULL) {
-			// references 2 functions
-			dlclose(code_handle);
-			//dlclose(code_handle);
-		} 
-		vel_step_opt = vel_step_opt_new;
-		dens_step_opt = dens_step_opt_new;
-		code_handle = new_code_handle;
-		new_code_handle = NULL;
-	}
-}  
-*/
-
 void generator_idle() {
-	int i, j;
-	if (!compare_grids(grid, code_grid)) { 
-		// copy grid
-		for (i = 0; i < G; i++)  
-		for (j = 0; j < G; j++) {
-			// mutex here??
-			code_grid[i][j] = grid[i][j];
-			// end mutex here??
-		}
-		//sleep(5);
+	pthread_mutex_lock(&gmutex);
+	//copy_grid
+	gridcpy(grid, grid_new);
+	pthread_mutex_unlock(&gmutex);
+	if (gridcmp(grid_new, code_grid) != 0) 
+	{	
+		cflag++;
 		gen_code();
 		get_steps(&dens_step_opt, &vel_step_opt);
 	}
 }
 
 void start_generator(void *arg) {
+	// TODO: asap chague this line below!!!!
+	sleep(2);
 	while (1) {  
 		generator_idle();
 	}

@@ -8,23 +8,27 @@ extern int N;
 // global variables
 int G;  // grid size 
 int slot_size; 
-int **grid, **grid_aux, **code_grid;	// grid of densities 
+int **grid, **grid_aux, **code_grid, **grid_new;	// grid of densities 
 
-void alloc_data() { 
-	int i; 
-	//alloc grid
-	grid = (int**)malloc(G * sizeof(int*));
-	grid_aux = (int**)malloc(G * sizeof(int*));
-	code_grid = (int**)malloc(G * sizeof(int*));
-	if (!grid || !grid_aux || !code_grid) 
+
+void alloc_matrix(int ***g)
+{
+	int i;
+	*g = (int**)malloc(G * sizeof(int*));
+	if (!(*g)) 
 		exit(0);
 	for (i = 0; i < G; i++) {
-		grid[i] = (int*)malloc(G * sizeof(int));
-		grid_aux[i] = (int*)malloc(G * sizeof(int));
-		code_grid[i] = (int*)malloc(G * sizeof(int));
-		if (!(grid[i]) || !(grid_aux[i]) || !(code_grid[i])) 
+		(*g)[i] = (int*)malloc(G * sizeof(int));
+		if (!((*g)[i])) 
 			exit(0);
 	}
+}	
+
+void alloc_data() { 
+	alloc_matrix(&grid);
+	alloc_matrix(&grid_aux);
+	alloc_matrix(&code_grid);
+	alloc_matrix(&grid_new);
 }
 
 void grid_init()
@@ -57,7 +61,7 @@ void calculate_iter()
  	int i, j, citer = 0; 
 	for (i = 0; i < G; i++) 
 	for (j = 0; j < G; j++) {
-		citer += iter_from_level(grid[i][j]);
+		citer += iter_from_level(code_grid[i][j]);
 	}
 	citer *= slot_size * slot_size;
 	printf("executed iterations every lin_solve: %f (%d / %d)\n", (1.0 * citer) / orig_iter, citer, orig_iter);
@@ -69,14 +73,25 @@ int level_from_density(float dens) {
 	return 0;  
 }
 
-int compare_grids(int **g1, int **g2) {
-	int i, j, size = G; 
+int gridcmp(int **g1, int **g2) {
+	int i, j, men = 0, size = G; 
 	for (i = 0; i < size; i++) 
 	for (j = 0; j < size; j++) {
-		if (g1[i][j] != g2[i][j]) 
-			return 0;
+		if (g1[i][j] != g2[i][j]) {  
+			if (g1[i][j] < g2[i][j])
+				men = -1;
+			else 
+				return 1;
+		}
 	}
-	return 1;
+	return men;
+}
+
+void gridcpy(int **src, int **dest) {
+	int i, j, size = G; 
+	for (i = 0; i < size; i++) 
+	for (j = 0; j < size; j++) 
+		dest[i][j] = src[i][j];
 }
 
 /* 
@@ -124,5 +139,4 @@ void refresh_grid(float **dens) {
 	aux = grid;
 	grid = grid_aux;
 	grid_aux = aux;
-	calculate_iter();
 }
