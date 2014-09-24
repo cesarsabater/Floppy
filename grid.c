@@ -10,7 +10,6 @@ int G;  // grid size
 int slot_size; 
 int **grid, **grid_aux, **code_grid, **grid_new;	// grid of densities 
 
-
 void alloc_matrix(int ***g)
 {
 	int i;
@@ -35,7 +34,6 @@ void grid_init()
 {
 	slot_size	= N / G;
 	alloc_data();
-	//ensure that grids are different at initialize time
 }
 
 int iter_from_level(int lev) { 
@@ -57,7 +55,7 @@ int iter_from_level(int lev) {
 
 void calculate_iter() 
 {
-	int orig_iter = 200 * 200 * 20;
+	int orig_iter = N * N * 20;
  	int i, j, citer = 0; 
 	for (i = 0; i < G; i++) 
 	for (j = 0; j < G; j++) {

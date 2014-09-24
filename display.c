@@ -32,6 +32,7 @@ extern void get_simulation_steps(stepfun*, stepfun*);
 extern void optimize_code();
 extern void transformer_init();
 extern void get_new_code_if_available();
+extern void start_generator(void*);
 //grid
 extern int G;
 extern int **grid, **code_grid, **grid_aux;
@@ -82,8 +83,8 @@ static void free_matrix(float **m) {
 
 static void free_data (void)
 {
-	if ( u ) free_matrix ( u );
-	if ( v ) free_matrix ( v );
+	if (u) free_matrix (u);
+	if (v) free_matrix (v);
 	if ( u_prev ) free_matrix ( u_prev );
 	if ( v_prev ) free_matrix ( v_prev );
 	if ( dens ) free_matrix ( dens );
@@ -312,15 +313,19 @@ void apply_sim()
 	pthread_mutex_unlock(&fmutex);
 	vel_step( N, u, v, u_prev, v_prev, visc, dt);
 	dens_step( N, dens, dens_prev, u, v, diff, dt);
-	printf("Run original code: NO ITERATIONS SAVED!");
+	printf("Run original code: NO ITERATIONS SAVED!\n");
 }
 
 static void step() {
+	//refresh grid
 	pthread_mutex_lock(&gmutex);
 	refresh_grid(dens);
 	pthread_mutex_unlock(&gmutex);
-	get_from_UI ( dens_prev, u_prev, v_prev );
+	//get density and velocity new values
+	get_from_UI(dens_prev, u_prev, v_prev);
+	//apply simulation step
 	apply_sim();
+	//display
 	glutSetWindow ( win_id );
 	glutPostRedisplay ();
 	printf("ITER: %d\n", iter);
@@ -426,5 +431,12 @@ void display_init(int argc, char **argv) {
 */
 void start_sim(void *arg)
 {
+	pthread_t generator;
+	//one step to put values to the grid
+	step();
+	//grid is ready to be used by the code generator
+	pthread_create(&generator, NULL, (void*)start_generator, NULL);
+	//start main simulation loop
 	glutMainLoop();
+	pthread_join(generator, NULL);
 }

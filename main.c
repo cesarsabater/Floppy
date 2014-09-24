@@ -10,8 +10,8 @@ extern void grid_init();
 //display
 extern void display_init(int, char**);
 extern void start_sim(void*);
+extern void step();
 //generator
-extern void start_generator(void*);
 extern void transformer_init();
 /* global */
 int N;
@@ -28,9 +28,6 @@ void init(int argc, char ** argv) {
 
 int main (int argc, char ** argv)
 {
-	printf("1!\n");
-	pthread_t generator, simulator;
-	
 	if ( argc != 1 && argc != 8 ) {
 		fprintf ( stderr, "usage : %s N dt diff visc force source grid\n", argv[0] );
 		fprintf ( stderr, "where:\n" );\
@@ -43,7 +40,6 @@ int main (int argc, char ** argv)
 		fprintf ( stderr, "\t grid : the size spot grid" ); 
 		exit ( 1 );
 	}
-
 	if ( argc == 1 ) {
 		N = 64;
 		dt = 0.1f;
@@ -63,7 +59,6 @@ int main (int argc, char ** argv)
 		source = atof(argv[6]);
 		G = atoi(argv[7]);
 	}
-
 	printf ( "\n\nHow to use this demo:\n\n" );
 	printf ( "\t Add densities with the right mouse button\n" );
 	printf ( "\t Add velocities with the left mouse button and dragging the mouse\n" );
@@ -71,22 +66,8 @@ int main (int argc, char ** argv)
 	printf ( "\t Clear the simulation by pressing the 'c' key\n" );
 	printf ( "\t Quit by pressing the 'q' key\n" );
 
-	printf("2!\n");
-
 	init(argc, argv);
-	
-	printf("3!\n");
-
-	// exec threads here
-	//pthread_create(&simulator, NULL, (void*)start_sim, NULL);
-	pthread_create(&generator, NULL, (void*)start_generator, NULL);
-	//printf("4!\n");
-	//pthread_join(simulator, NULL);
-
-	//printf("5!\n");
 	start_sim(NULL);
-	pthread_join(generator, NULL);
-	
-	exit ( 0 );
+	exit(0);
 }
 

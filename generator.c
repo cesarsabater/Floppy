@@ -286,8 +286,6 @@ void generator_idle() {
 }
 
 void start_generator(void *arg) {
-	// TODO: asap chague this line below!!!!
-	sleep(2);
 	while (1) {  
 		generator_idle();
 	}
