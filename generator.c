@@ -14,16 +14,15 @@
 #include <osl/osl.h>
 #include <osl/extensions/doi.h>
 
+/*
 #define DENS_FUNCTION 	"dens_step"
 #define VEL_FUNCTION 		"vel_step"
-#define FILENAME     		"solver3.c"
-#define BASE_CODE 			"simulation_base.c"
-#define ORIGINAL_CODE 	"simulation_original.c"
-#define GENERATED_CODE 	"simulation_generated.c"
+*/
+#define OPT_FUNCTION 		"lin_solve_opt"
+#define BASE_CODE 			"lin_solve_base.c"
+#define GENERATED_CODE 	"lin_solve_generated.c"
 #define COMPILED 		 		"libsimulator.so"
 #define COMPILED_ORIG 	"libsimulator_orig.so"
-#define LEVELS 3
-#define MAX_ITERATIONS 20
 #define FILENAME_LEN 20
 
 /* extern variables */
@@ -34,8 +33,10 @@ extern pthread_mutex_t gmutex;
 //display
 extern float ** u, ** v, ** u_prev, ** v_prev;
 extern float ** dens, ** dens_prev;
+/*
 extern void (*vel_step_opt)(int, float**,float**, float**, float**, float, float);
 extern void (*dens_step_opt)(int, float**, float**, float**, float**, float, float);
+*/
 //grid
 extern int G;  // grid size 
 extern int slot_size; 
@@ -44,6 +45,10 @@ extern void refresh_grid(float**);
 extern int gridcmp(int **, int **);
 extern int gridcpy(int **, int **);
 extern int iter_from_level(int);
+extern int get_levels();
+extern int max_outer_loop_iterations();
+//simulation_original
+extern void lin_solve_original(int, int, float **, float **, float, float);
 /* local variables */ 
 int cflag;
 void *handle = NULL;
@@ -52,9 +57,26 @@ osl_scop_p scop;
 osl_spot_p spots; 
 isl_ctx *ctx;
 isl_set **sets; 
+void (*lin_solve_opt)(int, int, float **, float **, float, float);
 
-// step type
-typedef void (*stepfun)(int,float**,float**,float**,float**,float,float);
+//typedef void (*stepfun)(int,float**,float**,float**,float**,float,float);
+typedef void (*stepfun)(int, int , float **, float **, float, float);
+
+void lin_solve_safe( int N, int b, float **x, float **x0, float a, float c) { 
+	// use de mutex here or before in sumulation-orig
+	//pthread_mutex_lock(&fmutex);
+	if (lin_solve_opt && gridcmp(grid_aux, code_grid) < 1) {
+		(*lin_solve_opt)(N, b, x, x0, a, c);
+		//mutex unlock and exit
+		//calculate_iter();
+		//pthread_mutex_unlock(&fmutex); 
+		return;
+	}
+	//mutex unlock
+	//pthread_mutex_unlock(&fmutex);
+	lin_solve_original(N, b, x, x0, a, c);
+	printf("Run original code: NO ITERATIONS SAVED!\n");
+}
 
 void gen_random_obj(char *s, int len) {
     int i;
@@ -67,6 +89,7 @@ void gen_random_obj(char *s, int len) {
 }
 
 void transformer_init() { 
+	lin_solve_opt = NULL;
 	cflag = 0;
 }
 
@@ -117,8 +140,8 @@ void create_isl_set_from_grid() {
 		scop_iter = stmt_body->iterators->string;
 	// alloc and init data
 	s = (char*)malloc(high_water_mark * sizeof(char)); 
-	sets = (isl_set**)malloc(LEVELS * sizeof(isl_set*));
-	for (i = 0; i < LEVELS; i++) 
+	sets = (isl_set**)malloc(get_levels() * sizeof(isl_set*));
+	for (i = 0; i < get_levels(); i++) 
 		sets[i] = NULL;
 	// compute domains
 	for (i = 0; i < G; i++)  
@@ -147,7 +170,7 @@ void create_isl_set_from_grid() {
 				sets[level] = isl_set_union(sets[level], set_i);
 	}
 	// add iteration constraints and simplify sets 
-	for (i = 0; i < LEVELS; i++) { 
+	for (i = 0; i < get_levels(); i++) { 
 		if (sets[i]) {
 			int iter = iter_from_level(i);
 			isl_set *set_k;
@@ -157,7 +180,7 @@ void create_isl_set_from_grid() {
 			create_isl_set_head(scop_params, scop->context->nb_parameters, 
 														scop_iter, niter, s, &high_water_mark);	
 			// iteration constraints
-			sprintf(buffer, "%s >= %d and %s < %d}", scop_iter[0], iter, scop_iter[0], MAX_ITERATIONS);
+			sprintf(buffer, "%s >= %d and %s < %d}", scop_iter[0], iter, scop_iter[0], max_outer_loop_iterations());
 			osl_util_safe_strcat(&s, buffer, &high_water_mark);
 			// read domain
 			set_k = isl_set_read_from_str(ctx, s);
@@ -189,7 +212,7 @@ void create_spots()
 	// remove old spots
 	osl_generic_remove(&(scop->extension), OSL_URI_SPOT);
 	// add new spots
-	for (i = 0; i < LEVELS; i++) {
+	for (i = 0; i < get_levels(); i++) {
 		if (sets[i]) { 
 			spot = osl_spot_malloc();
 			spot->priority = i; 
@@ -213,7 +236,7 @@ void create_spots()
 
 void gen_code() {
 	FILE *input, *output; 
-	printf("generacion de codigo!\n");
+	//printf("generacion de codigo!\n");
 	// read file	
 	input = fopen(BASE_CODE, "r");
 	scop = spot_scop_read_from_c(input, BASE_CODE);
@@ -237,14 +260,16 @@ void gen_code() {
 	osl_scop_free(scop);
 }
 
-void get_steps(stepfun *d, stepfun *v) {
+void get_steps(stepfun *l) {
   char buffer[50]; 
   char *error;
-  printf("compilacion!\n");
+  //printf("compilacion!\n");
 	// dynamic compilation of some code (which can be dynamically generated!)
 	sprintf(buffer, "sed -i 's/versionXXXX/%d/g' "GENERATED_CODE, cflag);
 	system(buffer);
-	system("gcc -fPIC -shared -o "COMPILED" "GENERATED_CODE);
+	
+	system("tcc -fPIC -shared -o "COMPILED" "GENERATED_CODE);
+	
 	// CONCURRENT REGION
 	pthread_mutex_lock(&fmutex);
 	if (handle != NULL) 
@@ -257,10 +282,13 @@ void get_steps(stepfun *d, stepfun *v) {
 		exit(EXIT_FAILURE);
 	}
 	// Get the pointer to the function we want to execute
+	*l = (void (*)(int, int , float **, float **, float, float))dlsym(handle, OPT_FUNCTION);
+	/*
 	*d = (void (*)(int,float**,float**,float**,
 										float**,float,float))dlsym(handle, DENS_FUNCTION);
 	*v = (void (*)(int,float**,float**,float**,
 										float**,float,float))dlsym(handle, VEL_FUNCTION);
+	*/ 
 	// refresh code grid
 	gridcpy(grid_new, code_grid);
 	pthread_mutex_unlock(&fmutex);
@@ -273,15 +301,15 @@ void get_steps(stepfun *d, stepfun *v) {
 }
 
 void generator_idle() {
-	pthread_mutex_lock(&gmutex);
+	//pthread_mutex_lock(&gmutex);
 	//copy_grid
 	gridcpy(grid, grid_new);
-	pthread_mutex_unlock(&gmutex);
+	//pthread_mutex_unlock(&gmutex);
 	if (gridcmp(grid_new, code_grid) != 0) 
 	{	
 		cflag++;
 		gen_code();
-		get_steps(&dens_step_opt, &vel_step_opt);
+		get_steps(&lin_solve_opt);
 	}
 }
 

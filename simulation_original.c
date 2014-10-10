@@ -4,6 +4,7 @@
 #define FOR_EACH_CELL for ( i=1 ; i<=N ; i++ ) { for ( j=1 ; j<=N ; j++ ) {
 #define END_FOR }}
 
+extern void lin_solve_safe(int N, int b, float **x, float **x0, float a, float c);
 
 void add_source ( int N, float **x, float **s, float dt )
 {
@@ -31,9 +32,10 @@ void set_bnd ( int N, int b, float * x )
 	*/
 }
 
-void lin_solve_complex( int N, int b, float **x, float **x0, float a, float c)
+void lin_solve_original( int N, int b, float **x, float **x0, float a, float c)
 {
 	int i, j, k;
+	//printf("lin_solve version %d\n", 0);
 	for ( k=0 ; k<20 ; k++ ) {
 		for ( i=1 ; i<=N ; i++ ) { 
 			for ( j=1 ; j<=N ; j++ ) {
@@ -44,24 +46,11 @@ void lin_solve_complex( int N, int b, float **x, float **x0, float a, float c)
 	}
 }
 
-void lin_solve( int N, int b, float **x, float **x0, float a, float c)
-{
-	int i, j, k;
-	printf("lin_solve version %d\n", 0);
-	for ( k=0 ; k<20 ; k++ ) {
-		for ( i=1 ; i<=N ; i++ ) { 
-			for ( j=1 ; j<=N ; j++ ) {
-				  x[i][j] = (x0[i][j] + a*(x[i-1][j]+x[i+1][j]+x[i][j-1]+x[i][j+1]))/c;
-			}
-		}
-		//set_bnd ( N, b, x );
-	}
-}
 
 void diffuse ( int N, int b, float ** x, float ** x0, float diff, float dt)
 {
 	float a=dt*diff*N*N;
-	lin_solve( N, b, x, x0, a, 1+4*a);
+	lin_solve_safe( N, b, x, x0, a, 1+4*a);
 }
 
 void advect ( int N, int b, float **d, float **d0, float **u, float **v, float dt )
@@ -91,7 +80,7 @@ void project ( int N, float **u, float **v, float **p, float **div)
 	} }	
 	//set_bnd ( N, 0, div ); set_bnd ( N, 0, p );
 
-	lin_solve_complex( N, 0, p, div, 1, 4);
+	lin_solve_original( N, 0, p, div, 1, 4);
 
 	for ( i=1 ; i<=N ; i++ ) { for ( j=1 ; j<=N ; j++ ) {
 		u[i][j] -= 0.5f*N*(p[i+1][j]-p[i-1][j]);

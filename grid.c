@@ -10,6 +10,48 @@ int G;  // grid size
 int slot_size; 
 int **grid, **grid_aux, **code_grid, **grid_new;	// grid of densities 
 
+/////////////////////////////////////////////////
+/////////// USER PROVIDED INFORMATION ///////////
+/////////////////////////////////////////////////
+
+// que iteradores son el espacio de iteracion??
+
+int iter_from_level(int lev) { 
+	switch (lev) { 
+		case 2: 
+			return 4; 
+			break;
+		case 1: 
+			return 3; 
+			break;
+		case 0: 
+			return 1;
+			break;
+		default: 
+			return 20;
+			break;
+	}
+}
+
+int level_from_density(float dens) { 	
+	if (dens > 0.5f) return 2;
+	if (dens > 0.001f) return 1;
+	return 0;  
+}
+
+int get_levels() 
+{
+	return 3;
+}
+
+int max_outer_loop_iterations() {
+	return 20;
+}
+
+/////////////////////////////////////////////////
+/////// END OF USER PROVIDED INFORMATION ////////
+/////////////////////////////////////////////////
+
 void alloc_matrix(int ***g)
 {
 	int i;
@@ -36,23 +78,6 @@ void grid_init()
 	alloc_data();
 }
 
-int iter_from_level(int lev) { 
-	switch (lev) { 
-		case 2: 
-			return 4; 
-			break;
-		case 1: 
-			return 3; 
-			break;
-		case 0: 
-			return 1;
-			break;
-		default: 
-			return 20;
-			break;
-	}
-}
-
 void calculate_iter() 
 {
 	int orig_iter = N * N * 20;
@@ -63,12 +88,6 @@ void calculate_iter()
 	}
 	citer *= slot_size * slot_size;
 	printf("executed iterations every lin_solve: %f (%d / %d)\n", (1.0 * citer) / orig_iter, citer, orig_iter);
-}
-
-int level_from_density(float dens) { 	
-	if (dens > 0.5f) return 2;
-	if (dens > 0.001f) return 1;
-	return 0;  
 }
 
 int gridcmp(int **g1, int **g2) {

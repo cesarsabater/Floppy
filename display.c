@@ -24,12 +24,12 @@
 
 #define max(x,y) (((x) > (y)) ? (x) : (y))
 
-typedef void (*stepfun)(int,float**,float**,float**,float**,float,float);
+
+//typedef void (*stepfun)(int,float**,float**,float**,float**,float,float);
+//typedef void (*stepfun)(
 
 /* external definitions  */
-//transformer
-extern void get_simulation_steps(stepfun*, stepfun*);
-extern void optimize_code();
+//generator
 extern void transformer_init();
 extern void get_new_code_if_available();
 extern void start_generator(void*);
@@ -50,11 +50,15 @@ extern pthread_mutex_t gmutex;
 // original simulation
 extern void dens_step (int, float**, float**, float**, float**, float, float);
 extern void vel_step (int, float**, float**, float**, float**, float, float);
+
 /* global variables */
+
+/*
 void (*vel_step_opt)(int, float**,float**, float**, float**, float, float);
 void (*dens_step_opt)(int, float**, float**, float**, float**, float, float);
 void (*vel_step_opt_new)(int, float**,float**, float**, float**, float, float);
 void (*dens_step_opt_new)(int, float**, float**, float**, float**, float, float);
+*/
 
 static int dvel;
 int pause;
@@ -85,10 +89,10 @@ static void free_data (void)
 {
 	if (u) free_matrix (u);
 	if (v) free_matrix (v);
-	if ( u_prev ) free_matrix ( u_prev );
-	if ( v_prev ) free_matrix ( v_prev );
-	if ( dens ) free_matrix ( dens );
-	if ( dens_prev ) free_matrix ( dens_prev );
+	if (u_prev) free_matrix(u_prev);
+	if (v_prev) free_matrix(v_prev);
+	if (dens) free_matrix(dens);
+	if (dens_prev) free_matrix(dens_prev);
 }
 
 static void clear_data (void)
@@ -300,6 +304,7 @@ static void reshape_func ( int width, int height )
 void apply_sim() 
 {
 	//mutex lock
+	/*
 	pthread_mutex_lock(&fmutex);
 	if (dens_step_opt && vel_step_opt && gridcmp(grid_aux, code_grid) < 1) {
 		(*vel_step_opt)( N, u, v, u_prev, v_prev, visc, dt);
@@ -310,17 +315,21 @@ void apply_sim()
 		return;
 	}
 	//mutex unlock
-	pthread_mutex_unlock(&fmutex);
+	pthread_mutex_unlock(&fmutex);*/
+	
+	pthread_mutex_lock(&fmutex);
 	vel_step( N, u, v, u_prev, v_prev, visc, dt);
 	dens_step( N, dens, dens_prev, u, v, diff, dt);
-	printf("Run original code: NO ITERATIONS SAVED!\n");
+	calculate_iter();
+	pthread_mutex_unlock(&fmutex);
+	//printf("Run original code: NO ITERATIONS SAVED!\n");
 }
 
 static void step() {
 	//refresh grid
-	pthread_mutex_lock(&gmutex);
+	//pthread_mutex_lock(&gmutex);
 	refresh_grid(dens);
-	pthread_mutex_unlock(&gmutex);
+	//pthread_mutex_unlock(&gmutex);
 	//get density and velocity new values
 	get_from_UI(dens_prev, u_prev, v_prev);
 	//apply simulation step
@@ -342,8 +351,8 @@ static void key_func ( unsigned char key, int x, int y )
 			break;
 		case 'q':
 		case 'Q':
-			free_data ();
-			exit ( 0 );
+			free_data();
+			exit(0);
 			break;
 		case 'v':
 		case 'V':
@@ -410,8 +419,10 @@ static void open_glut_window ( void )
 }
 
 void display_init(int argc, char **argv) {
+	/*
 	dens_step_opt = 0;
 	vel_step_opt = 0;
+	*/
 	glutInit(&argc, argv);
 	dvel = 0;
 	pause = 0;
@@ -423,7 +434,6 @@ void display_init(int argc, char **argv) {
 	win_y = 512;
 	open_glut_window();
 }
-
 /*
   ----------------------------------------------------------------------
    main --- main routine
