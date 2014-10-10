@@ -22,11 +22,10 @@
 
 /* macros */
 
+#define DISPLAY_DUMPFILE "fluid_dump.out"
+#define DISPLAY_DUMPRATE 100
 #define max(x,y) (((x) > (y)) ? (x) : (y))
 
-
-//typedef void (*stepfun)(int,float**,float**,float**,float**,float,float);
-//typedef void (*stepfun)(
 
 /* external definitions  */
 //generator
@@ -71,6 +70,7 @@ static int win_id;
 static int win_x, win_y;
 static int omx, omy, mx, my;
 
+FILE *dumpfile;
 /*
   ----------------------------------------------------------------------
    free/clear/allocate simulation data
@@ -85,14 +85,14 @@ static void free_matrix(float **m) {
 	free(m);
 }
 
-static void free_data (void)
+static void free_data(void)
 {
-	if (u) free_matrix (u);
-	if (v) free_matrix (v);
-	if (u_prev) free_matrix(u_prev);
-	if (v_prev) free_matrix(v_prev);
-	if (dens) free_matrix(dens);
-	if (dens_prev) free_matrix(dens_prev);
+	if(u) free_matrix(u);
+	if(v) free_matrix(v);
+	if(u_prev) free_matrix(u_prev);
+	if(v_prev) free_matrix(v_prev);
+	if(dens) free_matrix(dens);
+	if(dens_prev) free_matrix(dens_prev);
 }
 
 static void clear_data (void)
@@ -205,6 +205,16 @@ static void draw_map(float **v)
 		}
 	}
 	glEnd ();
+}
+
+void dump_matrix(float **m) {
+	int i, j;
+	fprintf(dumpfile, "%d\n", iter); 
+	for(i = 0; i <= N ; i++) {
+		for(j = 0; j <= N ; j++) 
+			fprintf(dumpfile, "%f ", m[i][j]);
+		fprintf(dumpfile, "\n");
+	}
 }
 
 static void draw_density ( void )
@@ -341,6 +351,11 @@ static void step() {
 	iter++;
 }
 
+void close_display() { 
+	free_data();
+	fclose(dumpfile);
+}
+
 static void key_func ( unsigned char key, int x, int y )
 {
 	switch ( key )
@@ -351,7 +366,7 @@ static void key_func ( unsigned char key, int x, int y )
 			break;
 		case 'q':
 		case 'Q':
-			free_data();
+			close_display(); 
 			exit(0);
 			break;
 		case 'v':
@@ -377,18 +392,22 @@ static void idle_func()
 	step();
 }
 
-static void display_func ( void )
+static void display_func(void)
 {
-	pre_display ();
+	pre_display();
 	switch(dvel) { 
-		case 0: draw_density (); 
+		case 0: draw_density(); 
 						break;
-		case 1: draw_velocity (); 
+		case 1: draw_velocity(); 
 						break;
 		case 2: draw_grid();
 						break;
 	}
-	post_display ();
+	
+	if (iter % DISPLAY_DUMPRATE == 0) 
+		dump_matrix(dens);
+	
+	post_display();
 }
 
 /*
@@ -432,6 +451,9 @@ void display_init(int argc, char **argv) {
 	clear_data();
 	win_x = 512;
 	win_y = 512;
+	
+	dumpfile = fopen(DISPLAY_DUMPFILE, "w");
+	
 	open_glut_window();
 }
 /*
