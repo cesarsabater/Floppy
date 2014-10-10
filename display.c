@@ -21,6 +21,9 @@
 
 /* macros */
 
+#define DISPLAY_DUMPFILE "fluid_orig_dump.out"
+#define DISPLAY_DUMPRATE 100
+
 #define IX(i,j) ((i)+(N+2)*(j))
 #define max(x,y) (((x) > (y)) ? (x) : (y))
 
@@ -52,7 +55,7 @@ static int win_id;
 static int win_x, win_y;
 static int omx, omy, mx, my;
 
-
+FILE *dumpfile;
 /*
   ----------------------------------------------------------------------
    free/clear/allocate simulation data
@@ -202,7 +205,6 @@ static void draw_map(float **v)
 	glEnd ();
 }
 
-
 static void draw_density ( void )
 {
 	draw_map(dens);
@@ -216,6 +218,17 @@ static void draw_max_dens(void)
 static void draw_max_vel(void)
 {
 	draw_map(vel_max);
+}
+
+
+void dump_matrix(float **m, FILE *df) {
+	int i, j;
+	fprintf(df, "%d\n", iter); 
+	for(i = 0; i <= N ; i++) {
+		for(j = 0; j <= N ; j++) 
+			fprintf(df, "%f ", m[i][j]);
+		fprintf(df, "\n");
+	}
 }
 
 
@@ -314,6 +327,11 @@ static void step() {
 	iter++;
 }
 
+void finish_sim() {
+	free_data();
+	fclose(dumpfile);
+}
+
 static void key_func ( unsigned char key, int x, int y )
 {
 	switch ( key )
@@ -325,10 +343,9 @@ static void key_func ( unsigned char key, int x, int y )
 
 		case 'q':
 		case 'Q':
-			free_data ();
+			finish_sim();
 			exit ( 0 );
 			break;
-
 		case 'v':
 		case 'V':
 			dvel++;
@@ -367,10 +384,9 @@ static void display_func ( void )
 							break;
 			
 		}
-		/*
-		if ( dvel ) draw_velocity ();
-		else		draw_density ();
-		*/
+	if (iter % DISPLAY_DUMPRATE == 0) 
+		dump_matrix(dens, dumpfile);
+	
 	post_display ();
 }
 
@@ -463,6 +479,7 @@ int main ( int argc, char ** argv )
 	// DOM SOLVER STUFF
 	dens_step = get_dens_step();
 	vel_step = get_vel_step();
+	dumpfile = fopen(DISPLAY_DUMPFILE, "w");
 
 
 	win_x = 512;
