@@ -14,7 +14,7 @@ extern void step();
 //generator
 extern void transformer_init();
 /* global */
-int N;
+int N, NUM_ITER;
 float dt, diff, visc;
 float force, source;
 pthread_mutex_t fmutex = PTHREAD_MUTEX_INITIALIZER;
@@ -28,7 +28,7 @@ void init(int argc, char ** argv) {
 
 int main (int argc, char ** argv)
 {
-	if ( argc != 1 && argc != 8 ) {
+	if ( argc != 1 && argc != 9 ) {
 		fprintf ( stderr, "usage : %s N dt diff visc force source grid\n", argv[0] );
 		fprintf ( stderr, "where:\n" );\
 		fprintf ( stderr, "\t N      : grid resolution\n" );
@@ -37,7 +37,8 @@ int main (int argc, char ** argv)
 		fprintf ( stderr, "\t visc   : viscosity of the fluid\n" );
 		fprintf ( stderr, "\t force  : scales the mouse movement that generate a force\n" );
 		fprintf ( stderr, "\t source : amount of density that will be deposited\n" );
-		fprintf ( stderr, "\t grid : the size spot grid" ); 
+		fprintf ( stderr, "\t grid : the size spot grid\n" ); 
+		fprintf ( stderr, "\t num_iter : the number of simulation iterations to perform" ); 
 		exit ( 1 );
 	}
 	if ( argc == 1 ) {
@@ -47,9 +48,10 @@ int main (int argc, char ** argv)
 		visc = 0.0f;
 		force = 5.0f;
 		source = 100.0f;
-		G = 5; 
-		fprintf ( stderr, "Using defaults : N=%d dt=%g diff=%g visc=%g force=%g source=%g\n",
-			N, dt, diff, visc, force, source);
+		G = 10; 
+		NUM_ITER = 600;
+		fprintf ( stderr, "Using defaults : N=%d dt=%g diff=%g visc=%g force=%g source=%g\n grid=%d num_iter=%d",
+			N, dt, diff, visc, force, source, G, NUM_ITER);
 	} else {
 		N = atoi(argv[1]);
 		dt = atof(argv[2]);
@@ -58,6 +60,7 @@ int main (int argc, char ** argv)
 		force = atof(argv[5]);
 		source = atof(argv[6]);
 		G = atoi(argv[7]);
+		NUM_ITER = atoi(argv[8]);
 	}
 	printf ( "\n\nHow to use this demo:\n\n" );
 	printf ( "\t Add densities with the right mouse button\n" );

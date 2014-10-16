@@ -75,17 +75,7 @@ void lin_solve_safe( int N, int b, float **x, float **x0, float a, float c) {
 	//mutex unlock
 	//pthread_mutex_unlock(&fmutex);
 	lin_solve_original(N, b, x, x0, a, c);
-	printf("Run original code: NO ITERATIONS SAVED!\n");
-}
-
-void gen_random_obj(char *s, int len) {
-    int i;
-    static const char alphanum[] =
-        "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-    for (i = 0; i < len-3; ++i) 
-        s[i] = alphanum[rand() % (sizeof(alphanum) - 1)];
-    strcpy(s+len-3, ".so");
-    s[len] = '\0';
+	//printf("Run original code: NO ITERATIONS SAVED!\n");
 }
 
 void transformer_init() { 

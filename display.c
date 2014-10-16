@@ -19,13 +19,13 @@
 #include <GL/glut.h>
 #include <math.h>
 #include <pthread.h>
+#include <omp.h>
 
 /* macros */
 
 #define DISPLAY_DUMPFILE "fluid_dump.out"
 #define DISPLAY_DUMPRATE 100
 #define max(x,y) (((x) > (y)) ? (x) : (y))
-
 
 /* external definitions  */
 //generator
@@ -41,7 +41,7 @@ extern void refresh_grid(float**);
 extern int gridcmp(int**, int**);
 extern void calculate_iter();
 // main
-extern int N;
+extern int N, NUM_ITER;
 extern float dt, diff, visc;
 extern float force, source;
 extern pthread_mutex_t fmutex;
@@ -51,13 +51,6 @@ extern void dens_step (int, float**, float**, float**, float**, float, float);
 extern void vel_step (int, float**, float**, float**, float**, float, float);
 
 /* global variables */
-
-/*
-void (*vel_step_opt)(int, float**,float**, float**, float**, float, float);
-void (*dens_step_opt)(int, float**, float**, float**, float**, float, float);
-void (*vel_step_opt_new)(int, float**,float**, float**, float**, float, float);
-void (*dens_step_opt_new)(int, float**, float**, float**, float**, float, float);
-*/
 
 static int dvel;
 int pause;
@@ -71,6 +64,7 @@ static int win_x, win_y;
 static int omx, omy, mx, my;
 
 FILE *dumpfile;
+double time1, time2;
 /*
   ----------------------------------------------------------------------
    free/clear/allocate simulation data
@@ -217,7 +211,7 @@ void dump_matrix(float **m) {
 	}
 }
 
-static void draw_density ( void )
+static void draw_density(void)
 {
 	draw_map(dens);
 }
@@ -330,9 +324,15 @@ void apply_sim()
 	pthread_mutex_lock(&fmutex);
 	vel_step( N, u, v, u_prev, v_prev, visc, dt);
 	dens_step( N, dens, dens_prev, u, v, diff, dt);
-	calculate_iter();
+	if (iter % DISPLAY_DUMPRATE == 0) 
+		calculate_iter(); 
 	pthread_mutex_unlock(&fmutex);
 	//printf("Run original code: NO ITERATIONS SAVED!\n");
+}
+
+void close_display() { 
+	free_data();
+	fclose(dumpfile);
 }
 
 static void step() {
@@ -347,14 +347,16 @@ static void step() {
 	//display
 	glutSetWindow ( win_id );
 	glutPostRedisplay ();
-	printf("ITER: %d\n", iter);
+	//printf("ITER: %d\n", iter);
 	iter++;
+	if (iter >= NUM_ITER) {
+		time2 = omp_get_wtime();
+    printf( "Number of seconds: %f\n", time2 - time1 );
+		close_display();
+		exit(0);
+	}
 }
 
-void close_display() { 
-	free_data();
-	fclose(dumpfile);
-}
 
 static void key_func ( unsigned char key, int x, int y )
 {
@@ -465,10 +467,12 @@ void start_sim(void *arg)
 {
 	pthread_t generator;
 	//one step to put values to the grid
+	
 	step();
 	//grid is ready to be used by the code generator
 	pthread_create(&generator, NULL, (void*)start_generator, NULL);
 	//start main simulation loop
+	time1 = omp_get_wtime();
 	glutMainLoop();
 	pthread_join(generator, NULL);
 }
