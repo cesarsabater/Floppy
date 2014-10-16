@@ -25,7 +25,7 @@ stepfun get_step(char *fun) {
   void (*f)(int,float**,float**,float**,float**,float,float);
   char *error;  
 	// dynamic compilation of some code (which can be dynamically generated!)
-  system("gcc -fPIC -shared -o "COMPILED" "BASE_CODE"");
+  system("gcc -O3 -fPIC -shared -o "COMPILED" "BASE_CODE"");
 	// load the dynamic library which have been dynamically generated
   handle = dlopen(COMPILED, RTLD_LAZY);
   if (!handle) {
@@ -41,7 +41,6 @@ stepfun get_step(char *fun) {
     fprintf(stderr, "%s\n", error);
     exit(EXIT_FAILURE);
   }
-  
 	return f;
 }
 

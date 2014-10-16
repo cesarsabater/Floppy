@@ -18,6 +18,7 @@
 #include <stdio.h>
 #include <GL/glut.h>
 #include <math.h>
+#include <omp.h> 
 
 /* macros */
 
@@ -40,7 +41,7 @@ extern stepfun get_vel_step();
 void (*vel_step)(int, float**,float**, float**, float**, float, float);
 void (*dens_step)(int, float**, float**, float**, float**, float, float);
 
-int N;
+int N, NUM_ITER;
 int pause;
 int iter;
 static float dt, diff, visc;
@@ -56,6 +57,7 @@ static int win_x, win_y;
 static int omx, omy, mx, my;
 
 FILE *dumpfile;
+double time1, time2; 
 /*
   ----------------------------------------------------------------------
    free/clear/allocate simulation data
@@ -313,6 +315,12 @@ static void poll_vel(int N, float **u, float **v, float **vm)
 	}
 }
 
+
+void finish_sim() {
+	free_data();
+	fclose(dumpfile);
+}
+
 static void step() {
 	get_from_UI ( dens_prev, u_prev, v_prev );
 	
@@ -323,14 +331,16 @@ static void step() {
 	
 	glutSetWindow ( win_id );
 	glutPostRedisplay ();
-	printf("ITER: %d\n", iter);
+	//printf("ITER: %d\n", iter);
 	iter++;
+	if (iter >= NUM_ITER) {
+		time2 = omp_get_wtime();
+    printf( "Number of seconds: %f\n", time2 - time1);
+		finish_sim();
+		exit(0);
+	}
 }
 
-void finish_sim() {
-	free_data();
-	fclose(dumpfile);
-}
 
 static void key_func ( unsigned char key, int x, int y )
 {
@@ -373,7 +383,7 @@ static void display_func ( void )
 {
 	pre_display ();
 
-		switch(dvel) { 
+	switch(dvel) { 
 			case 0: draw_density (); 
 							break;
 			case 1: draw_velocity (); 
@@ -383,20 +393,19 @@ static void display_func ( void )
 			case 3: draw_max_vel (); 
 							break;
 			
-		}
+	}
+	
 	if (iter % DISPLAY_DUMPRATE == 0) 
 		dump_matrix(dens, dumpfile);
 	
 	post_display ();
 }
 
-
 /*
   ----------------------------------------------------------------------
    open_glut_window --- open a glut compatible window and set callbacks
   ----------------------------------------------------------------------
 */
-
 static void open_glut_window ( void )
 {
 	glutInitDisplayMode ( GLUT_RGBA | GLUT_DOUBLE );
@@ -432,7 +441,7 @@ int main ( int argc, char ** argv )
 {
 	glutInit ( &argc, argv );
 
-	if ( argc != 1 && argc != 7 ) {
+	if ( argc != 1 && argc != 8 ) {
 		fprintf ( stderr, "usage : %s N dt diff visc force source\n", argv[0] );
 		fprintf ( stderr, "where:\n" );\
 		fprintf ( stderr, "\t N      : grid resolution\n" );
@@ -441,6 +450,7 @@ int main ( int argc, char ** argv )
 		fprintf ( stderr, "\t visc   : viscosity of the fluid\n" );
 		fprintf ( stderr, "\t force  : scales the mouse movement that generate a force\n" );
 		fprintf ( stderr, "\t source : amount of density that will be deposited\n" );
+		fprintf ( stderr, "\t num_iter : number of iterations to be performed\n" );
 		exit ( 1 );
 	}
 
@@ -451,8 +461,9 @@ int main ( int argc, char ** argv )
 		visc = 0.0f;
 		force = 5.0f;
 		source = 100.0f;
-		fprintf ( stderr, "Using defaults : N=%d dt=%g diff=%g visc=%g force=%g source=%g\n",
-			N, dt, diff, visc, force, source);
+		NUM_ITER = 600;
+		fprintf ( stderr, "Using defaults : N=%d dt=%g diff=%g visc=%g force=%g source=%g num_iter=%d\n",
+			N, dt, diff, visc, force, source, NUM_ITER);
 	} else {
 		N = atoi(argv[1]);
 		dt = atof(argv[2]);
@@ -460,6 +471,7 @@ int main ( int argc, char ** argv )
 		visc = atof(argv[4]);
 		force = atof(argv[5]);
 		source = atof(argv[6]);
+		NUM_ITER = atoi(argv[7]);
 	}
 
 	printf ( "\n\nHow to use this demo:\n\n" );
@@ -485,10 +497,10 @@ int main ( int argc, char ** argv )
 	win_x = 512;
 	win_y = 512;
 
-	
-	
 	open_glut_window ();
 
+	time1 = omp_get_wtime();
+	
 	glutMainLoop ();
 
 	exit ( 0 );
