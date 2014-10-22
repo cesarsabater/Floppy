@@ -28,19 +28,12 @@
 #define IX(i,j) ((i)+(N+2)*(j))
 #define max(x,y) (((x) > (y)) ? (x) : (y))
 
-/* external definitions (from solver.c) */
 
-typedef void (*stepfun)(int,float**,float**,float**,float**,float,float);
 
-extern stepfun get_dens_step();
-extern stepfun get_vel_step();
-
+// simulation
+extern void vel_step ( int N, float **u, float **v, float **u0, float **v0, float visc, float dt);
+void dens_step ( int N, float **x, float **x0, float **u, float **v, float diff, float dt);
 /* global variables */
-
-
-void (*vel_step)(int, float**,float**, float**, float**, float, float);
-void (*dens_step)(int, float**, float**, float**, float**, float, float);
-
 int N, NUM_ITER;
 int pause;
 int iter;
@@ -232,14 +225,11 @@ void dump_matrix(float **m, FILE *df) {
 		fprintf(df, "\n");
 	}
 }
-
-
 /*
   ----------------------------------------------------------------------
    relates mouse movements to forces sources
   ----------------------------------------------------------------------
 */
-
 static void get_from_UI ( float ** d, float ** u, float ** v )
 {
 	int i, j, size = (N+2);
@@ -248,7 +238,6 @@ static void get_from_UI ( float ** d, float ** u, float ** v )
 		u[i][j] = v[i][j] = d[i][j] = 0.0f;
 		/* v[i] = force;  */ 
 	}
-
 /*
  * original way of obtaining forces and velocities
 	if ( !mouse_down[0] && !mouse_down[2] ) return;
@@ -267,13 +256,11 @@ static void get_from_UI ( float ** d, float ** u, float ** v )
 		d[IX(i,j)] = source;
 	}
 */
-
 	static int toggle = 0, dir = 1;
 	if (toggle == 8) { dir = ( dir == 0 ) ? 1 : 0; toggle = 0 ;}
 	toggle++;
 	v[N/2][N/4] = force * dir; 
 	d[N/2][N/4] = source * dir;
-
 	omx = mx;
 	omy = my;
 
@@ -324,10 +311,10 @@ void finish_sim() {
 static void step() {
 	get_from_UI ( dens_prev, u_prev, v_prev );
 	
-	(*vel_step)( N, u, v, u_prev, v_prev, visc, dt);
-	(*dens_step)( N, dens, dens_prev, u, v, diff, dt);
-	poll_dens(N, dens, dens_max); 
-	poll_vel(N, u, v, vel_max); 
+	vel_step(N, u, v, u_prev, v_prev, visc, dt);
+	dens_step(N, dens, dens_prev, u, v, diff, dt);
+	//poll_dens(N, dens, dens_max); 
+	//poll_vel(N, u, v, vel_max); 
 	
 	glutSetWindow ( win_id );
 	glutPostRedisplay ();
@@ -396,7 +383,7 @@ static void display_func ( void )
 	}
 	
 	if (iter % DISPLAY_DUMPRATE == 0) 
-		dump_matrix(dens, dumpfile);
+		dump_matrix(dens, dumpfile); 
 	
 	post_display ();
 }
@@ -489,8 +476,6 @@ int main ( int argc, char ** argv )
 	clear_data ();
 	
 	// DOM SOLVER STUFF
-	dens_step = get_dens_step();
-	vel_step = get_vel_step();
 	dumpfile = fopen(DISPLAY_DUMPFILE, "w");
 
 
