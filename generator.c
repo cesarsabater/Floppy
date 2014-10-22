@@ -58,7 +58,6 @@ osl_spot_p spots;
 isl_ctx *ctx;
 isl_set **sets; 
 void (*lin_solve_opt)(int, int, float **, float **, float, float);
-
 //typedef void (*stepfun)(int,float**,float**,float**,float**,float,float);
 typedef void (*stepfun)(int, int , float **, float **, float, float);
 
@@ -100,10 +99,10 @@ void create_isl_set_head(char **params, int nparams, char **iter, int niter,
 	if (niter > 0 && iter) { 
 		osl_util_safe_strcat(&s, "[", high_water_mark);  
 		osl_util_safe_strcat(&s, iter[0], high_water_mark);  
-		for (i=1; i < niter; i++) { 
+		for (i=1; i < niter; i++) {
 			osl_util_safe_strcat(&s, ",", high_water_mark);
 			osl_util_safe_strcat(&s, iter[i], high_water_mark);
-		} 
+		}
 		osl_util_safe_strcat(&s, "]:", high_water_mark);  
 	} 
 }
@@ -119,7 +118,6 @@ void create_isl_set_from_grid() {
 	ctx = isl_ctx_alloc();		 
 	assert(ctx);
 	isl_options_set_on_error(ctx, ISL_ON_ERROR_ABORT);
-	
 	// get parameters
 	if(scop->context->nb_parameters) 
 		scop_params = ((osl_strings_p)scop->parameters->data)->string;
@@ -187,6 +185,7 @@ void create_isl_set_from_grid() {
 	// free stuff
 	free(s);
 	// TODO: FREE CONTEXT
+	// TODO: FREE SETS!!!
 }
 
 void create_spots() 
@@ -226,7 +225,6 @@ void create_spots()
 
 void gen_code() {
 	FILE *input, *output; 
-	//printf("generacion de codigo!\n");
 	// read file	
 	input = fopen(BASE_CODE, "r");
 	scop = spot_scop_read_from_c(input, BASE_CODE);
@@ -259,6 +257,7 @@ void get_steps(stepfun *l) {
 	system(buffer);
 	
 	system("tcc -fPIC -shared -o "COMPILED" "GENERATED_CODE);
+	//system("gcc -0 -fPIC -shared -o "COMPILED" "GENERATED_CODE);
 	
 	// CONCURRENT REGION
 	pthread_mutex_lock(&fmutex);

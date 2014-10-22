@@ -28,7 +28,7 @@ int iter_from_level(int lev) {
 			return 1;
 			break;
 		default: 
-			return 20;
+			return 4;
 			break;
 	}
 }
@@ -78,16 +78,19 @@ void grid_init()
 	alloc_data();
 }
 
-void calculate_iter() 
+double calculate_iter() 
 {
 	int orig_iter = N * N * 20;
  	int i, j, citer = 0; 
+ 	double percentage;
 	for (i = 0; i < G; i++) 
 	for (j = 0; j < G; j++) {
 		citer += iter_from_level(code_grid[i][j]);
 	}
 	citer *= slot_size * slot_size;
-	printf("executed iterations every lin_solve: %f (%d / %d)\n", (1.0 * citer) / orig_iter, citer, orig_iter);
+	percentage = (1.0 * citer) / orig_iter;
+	printf("executed iterations every lin_solve: %f (%d / %d)\n", percentage, citer, orig_iter);
+	return percentage;
 }
 
 int gridcmp(int **g1, int **g2) {

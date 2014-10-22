@@ -39,7 +39,7 @@ extern int slot_size;
 extern void grid_init();
 extern void refresh_grid(float**);
 extern int gridcmp(int**, int**);
-extern void calculate_iter();
+extern double calculate_iter();
 // main
 extern int N, NUM_ITER;
 extern float dt, diff, visc;
@@ -211,6 +211,28 @@ void dump_matrix(float **m) {
 	}
 }
 
+void dump_raw_matrix(float **m) {
+	int i, j;
+	int size = N+2;
+	for(i = 0; i < size ; i++) {
+		for(j = 0; j < size ; j++) {
+			printf("%f ", m[i][j]);
+		}
+		printf("\n");
+	}
+}
+
+void dump_grid(int **g){
+	int i, j;
+	int size = G;
+	for(i = 0; i < size ; i++) {
+		for(j = 0; j < size ; j++) {
+			printf("%d ", g[i][j]);
+		}
+		printf("\n");
+	}
+}
+
 static void draw_density(void)
 {
 	draw_map(dens);
@@ -286,6 +308,8 @@ static void get_from_UI ( float ** d, float ** u, float ** v )
 	toggle++;
 	v[N/2][N/4] = force * dir; 
 	d[N/2][N/4] = source * dir;
+	//~ v[N/2][3*N/4] = force * (-1)* dir; 
+	//~ d[N/2][3*N/4] = source * dir; 
 	omx = mx;
 	omy = my;
 
@@ -303,6 +327,19 @@ static void reshape_func ( int width, int height )
 	glutReshapeWindow ( width, height );
 	win_x = width;
 	win_y = height;
+}
+
+void snapshot() {
+	printf("************ SNAPSHOT ******************\n");
+	printf("dens\n");
+	dump_raw_matrix(dens);
+	printf("vel(v)\n");
+	dump_raw_matrix(v);
+	printf("vel(u)\n");
+	dump_raw_matrix(u);
+	printf("grid\n");
+	dump_grid(code_grid);
+	printf("************ SNAPSHOT ******************\n");
 }
 
 void apply_sim() 
@@ -324,8 +361,12 @@ void apply_sim()
 	pthread_mutex_lock(&fmutex);
 	vel_step( N, u, v, u_prev, v_prev, visc, dt);
 	dens_step( N, dens, dens_prev, u, v, diff, dt);
-	if (iter % DISPLAY_DUMPRATE == 0) 
-		calculate_iter(); 
+	/*
+	if (iter % DISPLAY_DUMPRATE == 0) {
+		if (calculate_iter() > 0.125) { 
+			snapshot();
+		}
+	} */
 	pthread_mutex_unlock(&fmutex);
 	//printf("Run original code: NO ITERATIONS SAVED!\n");
 }
@@ -349,6 +390,7 @@ static void step() {
 	glutPostRedisplay ();
 	//printf("ITER: %d\n", iter);
 	iter++;
+	
 	if (iter >= NUM_ITER) {
 		time2 = omp_get_wtime();
     printf( "Number of seconds: %f\n", time2 - time1 );
@@ -406,8 +448,9 @@ static void display_func(void)
 						break;
 	}
 	
+	/*
 	if (iter % DISPLAY_DUMPRATE == 0) 
-		dump_matrix(dens);
+		dump_matrix(dens); */
 	
 	post_display();
 }
