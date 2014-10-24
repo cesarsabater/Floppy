@@ -22,17 +22,26 @@
 
 /* macros */
 
-#define DISPLAY_DUMPFILE "fluid_orig_dump.out"
+#define DISPLAY_DUMPFILE "fluid_trivopt_dump.out"
 #define DISPLAY_DUMPRATE 100
 
 #define IX(i,j) ((i)+(N+2)*(j))
 #define max(x,y) (((x) > (y)) ? (x) : (y))
 
+/* grid */
+extern int G;
+extern int **grid;
+extern int slot_size;
+extern void grid_init();
+extern void refresh_grid(float**);
+extern int gridcmp(int**, int**);
+extern void calculate_iter();
+extern void finish_grid();
 
+/* simulation */
+extern void vel_step( int N, float **u, float **v, float **u0, float **v0, float visc, float dt);
+extern void dens_step( int N, float **x, float **x0, float **u, float **v, float diff, float dt);
 
-// simulation
-extern void vel_step ( int N, float **u, float **v, float **u0, float **v0, float visc, float dt);
-void dens_step ( int N, float **x, float **x0, float **u, float **v, float diff, float dt);
 /* global variables */
 int N, NUM_ITER;
 int pause;
@@ -43,7 +52,6 @@ static int dvel;
 
 float ** u, ** v, ** u_prev, ** v_prev;
 float ** dens, ** dens_prev;
-float ** vel_max, ** dens_max;
 
 static int win_id;
 static int win_x, win_y;
@@ -81,11 +89,11 @@ static void clear_data (void)
 	int i, j, size=N+2;
 
 	for ( i=0 ; i<size ; i++ ) for (j=0 ; j<size; j++) {
-		dens_max[i][j] = vel_max[i][j] = u[i][j] = v[i][j] = u_prev[i][j] = v_prev[i][j] = dens[i][j] = dens_prev[i][j] = 0.0f;
+		u[i][j] = v[i][j] = u_prev[i][j] = v_prev[i][j] = dens[i][j] = dens_prev[i][j] = 0.0f;
 	}
 }
 
-static float ** alloc_matrix() { 
+static float **alloc_matrix() { 
 	int i, size=N+2;
 	float **m; 
 	
@@ -112,16 +120,14 @@ static int allocate_data ( void )
 
 	u				  = alloc_matrix(); v 			  = alloc_matrix();
 	u_prev	  = alloc_matrix(); v_prev	  = alloc_matrix();
-	vel_max   = alloc_matrix();
 	dens		  = alloc_matrix(); dens_prev	= alloc_matrix();
-	dens_max  = alloc_matrix();
 	
-	if ( !u || !v || !u_prev || !v_prev ||!vel_max || !dens || !dens_prev || !dens_max) {
-		fprintf ( stderr, "cannot allocate data\n" );
-		return ( 0 );
+	if ( !u || !v || !u_prev || !v_prev  || !dens || !dens_prev ) {
+		fprintf (stderr, "cannot allocate data\n" );
+		return 0;
 	}
 	
-	return ( 1 );
+	return 1;
 }
 
 
@@ -205,14 +211,39 @@ static void draw_density ( void )
 	draw_map(dens);
 }
 
-static void draw_max_dens(void)
-{
-	draw_map(dens_max);
-}
 
-static void draw_max_vel(void)
+static void draw_grid(int **grid) 
 {
-	draw_map(vel_max);
+	// TODO: please optimize this mess!
+	int i, j, i0, j0;
+	float x, y, h, d00, d01, d10, d11;
+	int gsize, slsize;
+	float ratio = 0.3f; //0.05f;
+
+	h = 1.0f/N;
+	gsize = G;
+	slsize = (N+2)/gsize;
+
+	glBegin ( GL_QUADS );
+		
+		for (i = 0 ; i < G; i++) 
+		for (j = 0 ; j < G; j++) {
+			
+			for (i0 = i * slsize; i0 <= (i+1)*slsize; i0++) {
+				x = (i0-0.5f)*h;
+				for (j0 = j * slsize; j0 <= (j+1)*slsize; j0++) {
+					y = (j0-0.5f)*h;
+					
+					d00 = d01 = d10 = d11 = ratio * grid[i][j];
+
+					glColor3f ( d00, d00, d00 ); glVertex2f ( x, y );
+					glColor3f ( d10, d10, d10 ); glVertex2f ( x+h, y );
+					glColor3f ( d11, d11, d11 ); glVertex2f ( x+h, y+h );
+					glColor3f ( d01, d01, d01 ); glVertex2f ( x, y+h );
+				}
+			}
+		}
+	glEnd ();
 }
 
 
@@ -225,11 +256,14 @@ void dump_matrix(float **m, FILE *df) {
 		fprintf(df, "\n");
 	}
 }
+
+
 /*
   ----------------------------------------------------------------------
    relates mouse movements to forces sources
   ----------------------------------------------------------------------
 */
+
 static void get_from_UI ( float ** d, float ** u, float ** v )
 {
 	int i, j, size = (N+2);
@@ -238,6 +272,7 @@ static void get_from_UI ( float ** d, float ** u, float ** v )
 		u[i][j] = v[i][j] = d[i][j] = 0.0f;
 		/* v[i] = force;  */ 
 	}
+
 /*
  * original way of obtaining forces and velocities
 	if ( !mouse_down[0] && !mouse_down[2] ) return;
@@ -256,11 +291,13 @@ static void get_from_UI ( float ** d, float ** u, float ** v )
 		d[IX(i,j)] = source;
 	}
 */
+
 	static int toggle = 0, dir = 1;
 	if (toggle == 8) { dir = ( dir == 0 ) ? 1 : 0; toggle = 0 ;}
 	toggle++;
-	v[N/2][N/4] = force * dir; 
-	d[N/2][N/4] = source * dir;
+	//v[N/2][N/4] = force * dir; 
+	//d[N/2][N/4] = source * dir;
+
 	omx = mx;
 	omy = my;
 
@@ -284,38 +321,22 @@ static void reshape_func ( int width, int height )
 	win_y = height;
 }
 
-static void poll_dens(int N, float **d, float **dm)  
-{
-	int i,j;
-	for ( i=0 ; i<=N ; i++ ) 
-	for ( j=0 ; j<=N ; j++ ) {
-		dm[i][j] = max(dm[i][j], d[i][j]);
-	}
-}
-
-static void poll_vel(int N, float **u, float **v, float **vm)
-{
-	int i,j;
-	for ( i=0 ; i<=N ; i++ ) 
-	for ( j=0 ; j<=N ; j++ ) {
-		vm[i][j] = max(vm[i][j], sqrt((u[i][j]*u[i][j]) +  (v[i][j]*v[i][j])) * 10);
-	}
-}
-
-
 void finish_sim() {
 	free_data();
 	fclose(dumpfile);
+	//grid
+	finish_grid();
 }
 
 static void step() {
+	// actualize the grid
+	refresh_grid(dens);
+	// add new forcesa
 	get_from_UI ( dens_prev, u_prev, v_prev );
-	
-	vel_step(N, u, v, u_prev, v_prev, visc, dt);
-	dens_step(N, dens, dens_prev, u, v, diff, dt);
-	//poll_dens(N, dens, dens_max); 
-	//poll_vel(N, u, v, vel_max); 
-	
+	// compute new step
+	vel_step( N, u, v, u_prev, v_prev, visc, dt);
+	dens_step( N, dens, dens_prev, u, v, diff, dt);
+	// display results
 	glutSetWindow ( win_id );
 	glutPostRedisplay ();
 	//printf("ITER: %d\n", iter);
@@ -327,7 +348,6 @@ static void step() {
 		exit(0);
 	}
 }
-
 
 static void key_func ( unsigned char key, int x, int y )
 {
@@ -346,7 +366,7 @@ static void key_func ( unsigned char key, int x, int y )
 		case 'v':
 		case 'V':
 			dvel++;
-			dvel %= 4; 
+			dvel %= 3;
 			break;
 		case 'p': 
 		case 'P': 
@@ -374,16 +394,13 @@ static void display_func ( void )
 			case 0: draw_density (); 
 							break;
 			case 1: draw_velocity (); 
+							break;	
+			case 2: draw_grid(grid);
 							break;
-			case 2: draw_max_dens (); 
-							break;
-			case 3: draw_max_vel (); 
-							break;
-			
 	}
-	
+	/*
 	if (iter % DISPLAY_DUMPRATE == 0) 
-		dump_matrix(dens, dumpfile); 
+		dump_matrix(dens, dumpfile);*/
 	
 	post_display ();
 }
@@ -418,12 +435,29 @@ static void open_glut_window ( void )
 }
 
 
+void display_init() {
+	dvel = 0;
+	pause = 0; 
+	iter = 0;
+	
+	if ( !allocate_data () ) exit ( 1 );
+	clear_data ();
+	dumpfile = fopen(DISPLAY_DUMPFILE, "w");
+	win_x = 512;
+	win_y = 512;
+	open_glut_window ();
+}
+
+void init() {
+	display_init();
+	grid_init();
+}
+
 /*
   ----------------------------------------------------------------------
    main --- main routine
   ----------------------------------------------------------------------
 */
-
 int main ( int argc, char ** argv )
 {
 	glutInit ( &argc, argv );
@@ -468,25 +502,12 @@ int main ( int argc, char ** argv )
 	printf ( "\t Clear the simulation by pressing the 'c' key\n" );
 	printf ( "\t Quit by pressing the 'q' key\n" );
 
-	dvel = 0;
-	pause = 0; 
-	iter = 0;
-
-	if ( !allocate_data () ) exit ( 1 );
-	clear_data ();
-	
-	// DOM SOLVER STUFF
-	dumpfile = fopen(DISPLAY_DUMPFILE, "w");
-
-
-	win_x = 512;
-	win_y = 512;
-
-	open_glut_window ();
-
+	//init structures and procedures
+	init();
+	// start timer
 	time1 = omp_get_wtime();
-	
+	// start simulator
 	glutMainLoop ();
-
-	exit ( 0 );
+	// finish
+	exit(0);
 }
