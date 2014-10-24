@@ -22,7 +22,6 @@
 #include <omp.h>
 
 /* macros */
-
 #define DISPLAY_DUMPFILE "fluid_dump.out"
 #define DISPLAY_DUMPRATE 100
 #define max(x,y) (((x) > (y)) ? (x) : (y))
@@ -30,7 +29,6 @@
 /* external definitions  */
 //generator
 extern void transformer_init();
-extern void get_new_code_if_available();
 extern void start_generator(void*);
 //grid
 extern int G;
@@ -49,20 +47,15 @@ extern pthread_mutex_t gmutex;
 // original simulation
 extern void dens_step (int, float**, float**, float**, float**, float, float);
 extern void vel_step (int, float**, float**, float**, float**, float, float);
-
 /* global variables */
-
 static int dvel;
 int pause;
 int iter;
-
 float ** u, ** v, ** u_prev, ** v_prev;
 float ** dens, ** dens_prev;
-
 static int win_id;
 static int win_x, win_y;
 static int omx, omy, mx, my;
-
 FILE *dumpfile;
 double time1, time2;
 /*
@@ -92,7 +85,6 @@ static void free_data(void)
 static void clear_data (void)
 {
 	int i, j, size=N+2;
-
 	for ( i=0 ; i<size ; i++ ) for (j=0 ; j<size; j++) {
 		u[i][j] = v[i][j] = u_prev[i][j] = v_prev[i][j] = dens[i][j] = dens_prev[i][j] = 0.0f;
 	}
@@ -103,12 +95,10 @@ static float ** alloc_matrix() {
 	float **m; 
 	
 	m = (float**) malloc ( size * sizeof(float*)); 
-
 	if ( !m ) {
 		fprintf ( stderr, "cannot allocate data m\n" );
 		return NULL;
 	}
-
 	for (i = 0; i < size; i++)  { 
 		m[i] = (float*) malloc(size * sizeof(float));
 		if (!(m[i])) {
@@ -126,9 +116,9 @@ static int allocate_data ( void )
 	dens		  = alloc_matrix(); dens_prev	= alloc_matrix();
 	if ( !u || !v || !u_prev || !v_prev || !dens || !dens_prev) {
 		fprintf ( stderr, "cannot allocate data\n" );
-		return ( 0 );
+		return 0;
 	}
-	return ( 1 );
+	return 1;
 }
 
 
@@ -137,22 +127,22 @@ static int allocate_data ( void )
    OpenGL specific drawing routines
   ----------------------------------------------------------------------
 */
-static void pre_display ( void )
+static void pre_display(void)
 {
-	glViewport ( 0, 0, win_x, win_y );
-	glMatrixMode ( GL_PROJECTION );
-	glLoadIdentity ();
-	gluOrtho2D ( 0.0, 1.0, 0.0, 1.0 );
-	glClearColor ( 0.0f, 0.0f, 0.0f, 1.0f );
-	glClear ( GL_COLOR_BUFFER_BIT );
+	glViewport(0, 0, win_x, win_y);
+	glMatrixMode(GL_PROJECTION);
+	glLoadIdentity();
+	gluOrtho2D(0.0, 1.0, 0.0, 1.0);
+	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+	glClear(GL_COLOR_BUFFER_BIT);
 }
 
-static void post_display ( void )
+static void post_display(void)
 {
-	glutSwapBuffers ();
+	glutSwapBuffers();
 }
 
-static void draw_velocity ( void )
+static void draw_velocity(void)
 {
 	int i, j;
 	float x, y, h;
@@ -308,8 +298,6 @@ static void get_from_UI ( float ** d, float ** u, float ** v )
 	toggle++;
 	v[N/2][N/4] = force * dir; 
 	d[N/2][N/4] = source * dir;
-	//~ v[N/2][3*N/4] = force * (-1)* dir; 
-	//~ d[N/2][3*N/4] = source * dir; 
 	omx = mx;
 	omy = my;
 
@@ -345,18 +333,6 @@ void snapshot() {
 void apply_sim() 
 {
 	//mutex lock
-	/*
-	pthread_mutex_lock(&fmutex);
-	if (dens_step_opt && vel_step_opt && gridcmp(grid_aux, code_grid) < 1) {
-		(*vel_step_opt)( N, u, v, u_prev, v_prev, visc, dt);
-		(*dens_step_opt)( N, dens, dens_prev, u, v, diff, dt);
-		//mutex unlock and exit
-		calculate_iter();
-		pthread_mutex_unlock(&fmutex); 
-		return;
-	}
-	//mutex unlock
-	pthread_mutex_unlock(&fmutex);*/
 	
 	pthread_mutex_lock(&fmutex);
 	vel_step( N, u, v, u_prev, v_prev, visc, dt);
@@ -483,10 +459,6 @@ static void open_glut_window ( void )
 }
 
 void display_init(int argc, char **argv) {
-	/*
-	dens_step_opt = 0;
-	vel_step_opt = 0;
-	*/
 	glutInit(&argc, argv);
 	dvel = 0;
 	pause = 0;
@@ -496,9 +468,7 @@ void display_init(int argc, char **argv) {
 	clear_data();
 	win_x = 512;
 	win_y = 512;
-	
 	dumpfile = fopen(DISPLAY_DUMPFILE, "w");
-	
 	open_glut_window();
 }
 /*
@@ -510,7 +480,6 @@ void start_sim(void *arg)
 {
 	pthread_t generator;
 	//one step to put values to the grid
-	
 	step();
 	//grid is ready to be used by the code generator
 	pthread_create(&generator, NULL, (void*)start_generator, NULL);

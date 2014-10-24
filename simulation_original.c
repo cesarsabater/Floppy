@@ -63,7 +63,6 @@ void lin_solve_original( int N, int b, float **x, float **x0, float a, float c)
 		for ( i=1 ; i<=N ; i++ ) {
 			gi = (i-1)/slot_size; 
 			for ( j=1 ; j<=N ; j++ ) {
-					x[i][j] = (x0[i][j] + a*(x[i-1][j]+x[i+1][j]+x[i][j-1]+x[i][j+1]))/c;
 					gj = (j-1)/slot_size;
 					if (k < iter_from_level(grid[gi][gj])) { 
 						x[i][j] = (x0[i][j] + a*(x[i-1][j]+x[i+1][j]+x[i][j-1]+x[i][j+1]))/c;

@@ -28,15 +28,12 @@
 /* extern variables */
 //main
 extern int N;
+extern char *dyncomp;
 extern pthread_mutex_t fmutex;
 extern pthread_mutex_t gmutex;
 //display
 extern float ** u, ** v, ** u_prev, ** v_prev;
 extern float ** dens, ** dens_prev;
-/*
-extern void (*vel_step_opt)(int, float**,float**, float**, float**, float, float);
-extern void (*dens_step_opt)(int, float**, float**, float**, float**, float, float);
-*/
 //grid
 extern int G;  // grid size 
 extern int slot_size; 
@@ -62,7 +59,7 @@ void (*lin_solve_opt)(int, int, float **, float **, float, float);
 typedef void (*stepfun)(int, int , float **, float **, float, float);
 
 void lin_solve_safe( int N, int b, float **x, float **x0, float a, float c) { 
-	// use de mutex here or before in sumulation-orig
+	//use de mutex here or before in sumulation-orig
 	//pthread_mutex_lock(&fmutex);
 	if (lin_solve_opt && gridcmp(grid_aux, code_grid) < 1) {
 		(*lin_solve_opt)(N, b, x, x0, a, c);
@@ -119,13 +116,21 @@ void create_isl_set_from_grid() {
 	assert(ctx);
 	isl_options_set_on_error(ctx, ISL_ON_ERROR_ABORT);
 	// get parameters
-	if(scop->context->nb_parameters) 
+	if(scop->context->nb_parameters) {
 		scop_params = ((osl_strings_p)scop->parameters->data)->string;
+	} else { 
+		fprintf(stderr, "create_isl_set_from_grid: NULL value for scop->context->nb_parameters\n");
+		exit(1);
+	}
 	// get iterators
 	niter = osl_statement_get_nb_iterators(scop->statement);
 	stmt_body = osl_statement_get_body(scop->statement);
-	if(scop->context->nb_parameters)
+	if(scop->context->nb_parameters) { 
 		scop_iter = stmt_body->iterators->string;
+	} else { 
+		fprintf(stderr, "create_isl_set_from_grid: NULL value for scop->context->nb_parameters\n");
+		exit(1);
+	}
 	// alloc and init data
 	s = (char*)malloc(high_water_mark * sizeof(char)); 
 	sets = (isl_set**)malloc(get_levels() * sizeof(isl_set*));
@@ -185,7 +190,6 @@ void create_isl_set_from_grid() {
 	// free stuff
 	free(s);
 	// TODO: FREE CONTEXT
-	// TODO: FREE SETS!!!
 }
 
 void create_spots() 
@@ -218,9 +222,16 @@ void create_spots()
 		generic = osl_generic_shell(spots, osl_spot_interface());
 		osl_generic_add(&scop->extension, generic);
 	}
-	// free sets??
+	// free sets
+	for (i = 0; i < get_levels(); i++) { 
+		if (sets[i]) {
+			isl_set_free(sets[i]);
+		}
+	}
 	// free printer 
 	isl_printer_free(p);	
+	// TODO: free context
+	//isl_ctx_free(ctx);
 }
 
 void gen_code() {
@@ -236,7 +247,6 @@ void gen_code() {
 	create_isl_set_from_grid();  
 	create_spots();
 	spot_compute_scops(scop);
-	//osl_scop_dump(stdout, scop);
 	output = fopen(GENERATED_CODE, "w");
 	spot_scop_print_to_c(output, scop);
 	/*if (output != NULL) 
@@ -249,16 +259,15 @@ void gen_code() {
 }
 
 void get_steps(stepfun *l) {
-  char buffer[50]; 
+  char buffer[100]; 
   char *error;
   //printf("compilacion!\n");
 	// dynamic compilation of some code (which can be dynamically generated!)
 	sprintf(buffer, "sed -i 's/versionXXXX/%d/g' "GENERATED_CODE, cflag);
 	system(buffer);
-	
-	system("tcc -fPIC -shared -o "COMPILED" "GENERATED_CODE);
-	//system("gcc -0 -fPIC -shared -o "COMPILED" "GENERATED_CODE);
-	
+	sprintf(buffer, "%s -fPIC -shared -o "COMPILED" "GENERATED_CODE, dyncomp);
+	system(buffer);
+	//system("tcc -fPIC -shared -o "COMPILED" "GENERATED_CODE)
 	// CONCURRENT REGION
 	pthread_mutex_lock(&fmutex);
 	if (handle != NULL) 
@@ -270,14 +279,8 @@ void get_steps(stepfun *l) {
 		fprintf(stderr, "%s\n", dlerror());
 		exit(EXIT_FAILURE);
 	}
-	// Get the pointer to the function we want to execute
+	// pointer of the function
 	*l = (void (*)(int, int , float **, float **, float, float))dlsym(handle, OPT_FUNCTION);
-	/*
-	*d = (void (*)(int,float**,float**,float**,
-										float**,float,float))dlsym(handle, DENS_FUNCTION);
-	*v = (void (*)(int,float**,float**,float**,
-										float**,float,float))dlsym(handle, VEL_FUNCTION);
-	*/ 
 	// refresh code grid
 	gridcpy(grid_new, code_grid);
 	pthread_mutex_unlock(&fmutex);
