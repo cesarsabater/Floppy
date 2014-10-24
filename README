@@ -1,0 +1,7 @@
+compile:
+	make
+run: 
+ACR version:
+	./sim_opt < snapshot.out
+Static Trivial Opt Version: 
+	./sim_triv < snapshot.out
