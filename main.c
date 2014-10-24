@@ -47,12 +47,12 @@ int main (int argc, char ** argv)
 		exit ( 1 );
 	}
 	if ( argc == 1 ) {
-		N = 64;
-		dt = 0.1f;
-		diff = 0.0f;
-		visc = 0.0f;
-		force = 5.0f;
-		source = 100.0f;
+		N = 200;
+		dt = 0.1;
+		diff = 0.00001;
+		visc = 0.0;
+		force = 10.0;
+		source = 300.0f;
 		G = 10; 
 		NUM_ITER = 500;
 		sprintf(dynamic_compiler, "%s", "tcc");

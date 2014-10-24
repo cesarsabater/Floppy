@@ -1,0 +1,20 @@
+compilation: 
+	make
+usage : 
+	./fluid   (for default parameters)
+		or
+	./fluid N dt diff visc force source grid dyn_comp dyn_comp_opt
+where:
+	 N      : space resolution
+	 dt     : time step
+	 diff   : diffusion rate of the density
+	 visc   : viscosity of the fluid
+	 force  : scales the mouse movement that generate a force
+	 source : amount of density that will be deposited
+	 grid : grid resolution
+	 num_iter : the number of simulation iterations to perform
+	 dyn_comp : the compiler used to compile tcc, gcc"lin_solve" at runtime
+	 dyn_comp_opt : options for dyn_comp: -O0, -O1, -O2, -O3, not taked into account in tcc
+default parameters:
+	./fluid 200 0.1 0.00001 0 10 300 10 500 tcc -O1
+
