@@ -462,29 +462,31 @@ int main ( int argc, char ** argv )
 {
 	glutInit ( &argc, argv );
 
-	if ( argc != 1 && argc != 8 ) {
-		fprintf ( stderr, "usage : %s N dt diff visc force source\n", argv[0] );
-		fprintf ( stderr, "where:\n" );\
-		fprintf ( stderr, "\t N      : grid resolution\n" );
-		fprintf ( stderr, "\t dt     : time step\n" );
-		fprintf ( stderr, "\t diff   : diffusion rate of the density\n" );
-		fprintf ( stderr, "\t visc   : viscosity of the fluid\n" );
-		fprintf ( stderr, "\t force  : scales the mouse movement that generate a force\n" );
-		fprintf ( stderr, "\t source : amount of density that will be deposited\n" );
-		fprintf ( stderr, "\t num_iter : number of iterations to be performed\n" );
-		exit ( 1 );
+	if (argc != 1 && argc != 9) {
+		fprintf(stderr, "usage : %s N dt diff visc force source\n", argv[0]);
+		fprintf(stderr, "where:\n");
+		fprintf(stderr, "\t N      : window resolution\n");
+		fprintf(stderr, "\t dt     : time step\n");
+		fprintf(stderr, "\t diff   : diffusion rate of the density\n");
+		fprintf(stderr, "\t visc   : viscosity of the fluid\n");
+		fprintf(stderr, "\t force  : scales the mouse movement that generate a force\n");
+		fprintf(stderr, "\t source : amount of density that will be deposited\n");
+		fprintf(stderr, "\t grid_size: resolution of the grid (must divide N)");
+		fprintf(stderr, "\t num_iter : number of iterations to be performed\n");
+		exit(1);
 	}
 
-	if ( argc == 1 ) {
-		N = 64;
+	if (argc == 1) {
+		N = 200;
 		dt = 0.1f;
-		diff = 0.0f;
+		diff = 0.00001f;
 		visc = 0.0f;
-		force = 5.0f;
-		source = 100.0f;
-		NUM_ITER = 600;
-		fprintf ( stderr, "Using defaults : N=%d dt=%g diff=%g visc=%g force=%g source=%g num_iter=%d\n",
-			N, dt, diff, visc, force, source, NUM_ITER);
+		force = 10.0f;
+		source = 300.0f;
+		G = 10;
+		NUM_ITER = 500;
+		fprintf (stderr, "Using defaults : N=%d dt=%g diff=%g visc=%g force=%g source=%g grid_size=%d num_iter=%d\n",
+			N, dt, diff, visc, force, source, G, NUM_ITER);
 	} else {
 		N = atoi(argv[1]);
 		dt = atof(argv[2]);
@@ -492,7 +494,8 @@ int main ( int argc, char ** argv )
 		visc = atof(argv[4]);
 		force = atof(argv[5]);
 		source = atof(argv[6]);
-		NUM_ITER = atoi(argv[7]);
+		G = atoi(argv[7]);
+		NUM_ITER = atoi(argv[8]);
 	}
 
 	printf ( "\n\nHow to use this demo:\n\n" );
