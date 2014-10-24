@@ -295,8 +295,8 @@ static void get_from_UI ( float ** d, float ** u, float ** v )
 	static int toggle = 0, dir = 1;
 	if (toggle == 8) { dir = ( dir == 0 ) ? 1 : 0; toggle = 0 ;}
 	toggle++;
-	//v[N/2][N/4] = force * dir; 
-	//d[N/2][N/4] = source * dir;
+	v[N/2][N/4] = force * dir; 
+	d[N/2][N/4] = source * dir;
 
 	omx = mx;
 	omy = my;
