@@ -1,3 +1,6 @@
+dependencies:
+	freeglut3-dev (display the fluid using openGL) 
+	tcc           (tinyCC compiler) 
 compilation: 
 	make
 usage : 
