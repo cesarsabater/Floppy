@@ -12,7 +12,7 @@
 
 #include <spot/spot.h>
 #include <osl/osl.h>
-#include <osl/extensions/doi.h>
+#include <osl/extensions/spot.h>
 
 /*
 #define DENS_FUNCTION 	"dens_step"

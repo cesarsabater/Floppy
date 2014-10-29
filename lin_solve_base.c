@@ -2,7 +2,7 @@
 
 void lin_solve_opt( int N, int b, float **x, float **x0, float a, float c)
 {
-	int i, j, k;
+	//int i, j, k;
 	//printf("lin_solve version %d\n", versionXXXX);
 	#pragma scop
 	for ( k=0 ; k<20 ; k++ ) {
