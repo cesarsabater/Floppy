@@ -11,7 +11,7 @@ SOPTIMOPT=-O3
 all:
 	$(RUNTIMECOMPILER) $(RUNTIMEOPTS) -c lin_solve_generated.c
 	$(ACRCOMPILER) $(ACROPTS) controller.c simulation_opt.c -fopenmp -o sim_opt lin_solve_generated.o
-	$(STATICOPTCC) $(OPTIMOPT) controller.c simulation_trivial.c -fopenmp -o sim_triv
+	$(STATICOPTCC) $(SOPTIMOPT) controller.c simulation_trivial.c -fopenmp -o sim_triv
 
 ## old stuff
 #all:
